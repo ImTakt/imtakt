@@ -14,7 +14,7 @@ examples/
 implementation-status.md
 ```
 
-Company hub: [ImTakt/imtakt](https://github.com/ImTakt/imtakt) · Docs: [ImTakt/imtakt-docs](https://github.com/ImTakt/imtakt-docs)
+Company hub: [ImTakt/imtakt](https://github.com/ImTakt/imtakt) · Docs: [ImTakt/imtakt-docs](https://github.com/ImTakt/imtakt-docs) · Site: [imtakt.dev](https://imtakt.dev)
 
 ## Quick start (planned)
 
