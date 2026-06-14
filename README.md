@@ -14,7 +14,7 @@ examples/
 implementation-status.md
 ```
 
-Company hub: [`../imtakt). Docs: [`../imtakt-docs/`](../imtakt-docs/).
+Company hub: [ImTakt/imtakt](https://github.com/ImTakt/imtakt) · Docs: [ImTakt/imtakt-docs](https://github.com/ImTakt/imtakt-docs)
 
 ## Quick start (planned)
 
@@ -25,4 +25,4 @@ imtakt board "Köln Hbf" --json
 
 ## Status
 
-See [implementation-status.md](implementation-status.md). v1 spec: `imtakt
+See [implementation-status.md](implementation-status.md). v1 spec: [imtakt).
