@@ -20,12 +20,13 @@ cd imtakt && bun install
 bun run typecheck
 ```
 
-Local API (optional):
+Local API (full stack):
 
 ```bash
-# Sibling repos
-cd ../imtakt-gtfs && docker compose up meilisearch -d && bun run feeds:refresh
-cd ../imtakt-router && bash scripts/dev-api.sh
+# See imtakt-router/LOCALDEV.md
+cd ../imtakt-gtfs && bun run dev:harness && bun run feeds:link-local && bun run feeds:refresh
+cd ../imtakt-router && bun run dev:local    # or: bash scripts/dev-api.sh (API only)
+bash scripts/smoke-local.sh
 export IMTAKT_SERVER_URL=http://localhost:3011
 ```
 
