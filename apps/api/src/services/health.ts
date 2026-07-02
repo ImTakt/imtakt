@@ -2,7 +2,7 @@ import { config } from "../config"
 import { createTtlCache } from "../lib/ttl-cache"
 import { getFeedMeta } from "./feed-meta"
 import { pingDb } from "./stops-db"
-import { meiliClient } from "../lib/http-client"
+import { meiliClient, routerClient } from "../lib/http-client"
 
 export type HealthStatus = {
   ok: boolean
@@ -44,11 +44,8 @@ async function probeHealth(): Promise<HealthStatus> {
   let routingOk = false
   let routingError: string | undefined
   try {
-    const res = await fetch(`${config.motisUrl}/api/v6/status`, {
-      signal: AbortSignal.timeout(2500),
-    })
-    routingOk = res.ok
-    if (!res.ok) routingError = `status ${res.status}`
+    await routerClient.getJson("/api/v6/status")
+    routingOk = true
   } catch (err) {
     routingError = err instanceof Error ? err.message : "unreachable"
   }

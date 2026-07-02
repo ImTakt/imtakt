@@ -20,10 +20,24 @@ export const config = {
   feedManifestPath: process.env.FEED_MANIFEST_PATH ?? "",
   feedMaxAgeHours: Number(process.env.FEED_MAX_AGE_HOURS ?? "48"),
   databaseUrl: process.env.DATABASE_URL ?? "",
+  /** Upstream fetch timeouts (ms). */
+  upstreamTimeoutMs: Number(process.env.UPSTREAM_TIMEOUT_MS ?? "15000"),
+  meiliTimeoutMs: Number(process.env.MEILI_TIMEOUT_MS ?? "8000"),
+  routerTimeoutMs: Number(process.env.ROUTER_TIMEOUT_MS ?? "30000"),
   /** Health probe cache — reduces load from Railway/K8s (seconds). */
   healthCacheSec: Number(process.env.HEALTH_CACHE_SEC ?? (isProduction ? "10" : "2")),
   /** Feed manifest cache (seconds). */
   feedCacheSec: Number(process.env.FEED_CACHE_SEC ?? "30"),
+  /** Stop search cache (seconds, 0 = off). */
+  stopSearchCacheSec: Number(process.env.STOP_SEARCH_CACHE_SEC ?? (isProduction ? "60" : "0")),
+  stopSearchCacheMax: Number(process.env.STOP_SEARCH_CACHE_MAX ?? "4000"),
+  /** Place resolution cache (seconds, 0 = off). */
+  placeResolveCacheSec: Number(process.env.PLACE_RESOLVE_CACHE_SEC ?? (isProduction ? "300" : "0")),
+  placeResolveCacheMax: Number(process.env.PLACE_RESOLVE_CACHE_MAX ?? "8000"),
+  /** Per-IP requests/minute on /v1 (0 = disabled). */
+  rateLimitRpm: Number(process.env.RATE_LIMIT_RPM ?? (isProduction ? "120" : "0")),
+  /** Periodic upstream warm (seconds, 0 = off). */
+  warmIntervalSec: Number(process.env.WARM_INTERVAL_SEC ?? (isProduction ? "300" : "0")),
   maxRequestBodyBytes: Number(process.env.MAX_REQUEST_BODY_BYTES ?? String(1024 * 1024)),
   reusePort: process.env.BUN_REUSE_PORT === "1",
 }
