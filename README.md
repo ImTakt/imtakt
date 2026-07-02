@@ -35,8 +35,6 @@ npx @imtakt/cli journey "Berlin Hbf" "München Hbf"
 npm i @imtakt/sdk
 ```
 
-Full MCP reference: [imtakt.dev/mcp](https://imtakt.dev/mcp)
-
 ## What's in this repo
 
 ```text
@@ -45,26 +43,15 @@ imtakt/
 ├── packages/
 │   ├── sdk/             @imtakt/sdk
 │   ├── cli/             @imtakt/cli
-│   └── core/            /v1 schemas
-└── apps/api/            ImTakt Server (we host this for you)
+│   └── core/            /v1 schemas + constants
+└── examples/
 ```
 
-**You don't need to clone this repo to use ImTakt.** Clone when you contribute to the server or clients.
+**ImTakt Server** (`/v1`) lives in **[imtakt-router](https://github.com/ImTakt/imtakt-router)** — we host it at `api.imtakt.dev`. You don't need to clone either repo to use ImTakt.
 
 ## Self-host (later — not required for adoption)
 
-Running your own API + data stack is supported but **not the focus right now**. Operators use sibling repo [imtakt-gtfs](https://github.com/ImTakt/imtakt-gtfs) for feeds, search index, and routing bootstrap. See [OPERATORS.md](https://github.com/ImTakt/imtakt-gtfs/blob/main/OPERATORS.md).
-
-Local API dev (contributors only):
-
-```bash
-# Terminal 1 — data harness (imtakt-gtfs)
-docker compose up postgres meilisearch -d && bun run feeds:refresh
-
-# Terminal 2 — API with local override
-export IMTAKT_SERVER_URL=http://localhost:3011
-bash scripts/dev-api.sh
-```
+Operators: **[imtakt-router](https://github.com/ImTakt/imtakt-router)** (API + routing) + **[imtakt-gtfs](https://github.com/ImTakt/imtakt-gtfs)** (feeds + index). See [OPERATORS.md](https://github.com/ImTakt/imtakt-gtfs/blob/main/OPERATORS.md).
 
 ## Status
 
