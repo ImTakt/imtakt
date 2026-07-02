@@ -1,5 +1,6 @@
 import type { StopMatch, TransitMode } from "@imtakt/core"
 import { config, DEFAULT_STOP_MATCHES } from "../config"
+import { createKeyedCache } from "../lib/keyed-cache"
 import { meiliClient } from "../lib/http-client"
 
 export type SearchDocument = {
@@ -39,6 +40,30 @@ const RETRIEVE = [
   "motis_stop_id",
   "location_type",
 ] as const
+
+const nameSearchCache =
+  config.stopSearchCacheSec > 0
+    ? createKeyedCache<StopMatch[]>({
+        ttlMs: config.stopSearchCacheSec * 1000,
+        maxEntries: config.stopSearchCacheMax,
+      })
+    : null
+
+const geoSearchCache =
+  config.stopSearchCacheSec > 0
+    ? createKeyedCache<StopMatch[]>({
+        ttlMs: config.stopSearchCacheSec * 1000,
+        maxEntries: config.stopSearchCacheMax,
+      })
+    : null
+
+const stopDocCache =
+  config.placeResolveCacheSec > 0
+    ? createKeyedCache<StopDocument | null>({
+        ttlMs: config.placeResolveCacheSec * 1000,
+        maxEntries: config.placeResolveCacheMax,
+      })
+    : null
 
 function normalize(s: string): string {
   return s
@@ -119,15 +144,19 @@ export async function searchStopsByName(
   query: string,
   limit = DEFAULT_STOP_MATCHES,
 ): Promise<StopMatch[]> {
-  const data = await meiliClient.postJson<{ hits: SearchDocument[] }>(
-    `/indexes/${config.meiliIndex}/search`,
-    {
-      q: query,
-      limit: Math.max(limit * 8, 40),
-      attributesToRetrieve: RETRIEVE,
-    },
-  )
-  return dedupeByStation(data.hits, query, limit)
+  const cacheKey = `name:${limit}:${query.trim().toLowerCase()}`
+  const run = async () => {
+    const data = await meiliClient.postJson<{ hits: SearchDocument[] }>(
+      `/indexes/${config.meiliIndex}/search`,
+      {
+        q: query,
+        limit: Math.max(limit * 8, 40),
+        attributesToRetrieve: RETRIEVE,
+      },
+    )
+    return dedupeByStation(data.hits, query, limit)
+  }
+  return nameSearchCache ? nameSearchCache.get(cacheKey, run) : run()
 }
 
 export async function searchStopsByGeo(
@@ -136,44 +165,53 @@ export async function searchStopsByGeo(
   limit = DEFAULT_STOP_MATCHES,
   radiusM = 1500,
 ): Promise<StopMatch[]> {
-  const data = await meiliClient.postJson<{ hits: SearchDocument[] }>(
-    `/indexes/${config.meiliIndex}/search`,
-    {
-      q: "",
-      filter: `_geoRadius(${lat}, ${lng}, ${radiusM})`,
-      sort: [`_geoPoint(${lat}, ${lng}):asc`],
-      limit: Math.max(limit * 4, 20),
-      attributesToRetrieve: RETRIEVE,
-    },
-  )
-  const byStation = new Map<string, SearchDocument>()
-  for (const hit of data.hits) {
-    if (!byStation.has(hit.station_id)) byStation.set(hit.station_id, hit)
+  const cacheKey = `geo:${limit}:${radiusM}:${lat.toFixed(5)},${lng.toFixed(5)}`
+  const run = async () => {
+    const data = await meiliClient.postJson<{ hits: SearchDocument[] }>(
+      `/indexes/${config.meiliIndex}/search`,
+      {
+        q: "",
+        filter: `_geoRadius(${lat}, ${lng}, ${radiusM})`,
+        sort: [`_geoPoint(${lat}, ${lng}):asc`],
+        limit: Math.max(limit * 4, 20),
+        attributesToRetrieve: RETRIEVE,
+      },
+    )
+    const byStation = new Map<string, SearchDocument>()
+    for (const hit of data.hits) {
+      if (!byStation.has(hit.station_id)) byStation.set(hit.station_id, hit)
+    }
+    return [...byStation.values()]
+      .slice(0, limit)
+      .map((h, i) => docToMatch(h, "geo", Math.max(0.5, 1 - i * 0.05)))
   }
-  return [...byStation.values()]
-    .slice(0, limit)
-    .map((h, i) => docToMatch(h, "geo", Math.max(0.5, 1 - i * 0.05)))
+  return geoSearchCache ? geoSearchCache.get(cacheKey, run) : run()
+}
+
+async function fetchStopDocumentById(id: string): Promise<StopDocument | null> {
+  try {
+    const doc = await meiliClient.getJson<SearchDocument>(
+      `/indexes/${config.meiliIndex}/documents/${encodeURIComponent(id)}`,
+    )
+    return {
+      ...doc,
+      name: doc.station_name,
+      location: { lat: doc._geo.lat, lng: doc._geo.lng },
+      gtfsStopId: doc.gtfs_stop_id,
+      motisStopId: doc.motis_stop_id,
+      locationType: doc.location_type,
+      parentStation: doc.parent_station_id ?? undefined,
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("404")) return null
+    throw err
+  }
 }
 
 export async function getStopDocumentById(id: string): Promise<StopDocument | null> {
-  const res = await fetch(
-    `${config.meiliUrl}/indexes/${config.meiliIndex}/documents/${encodeURIComponent(id)}`,
-    {
-      headers: config.meiliKey ? { authorization: `Bearer ${config.meiliKey}` } : {},
-    },
-  )
-  if (res.status === 404) return null
-  if (!res.ok) throw new Error("Stop lookup backend unavailable")
-  const doc = (await res.json()) as SearchDocument
-  return {
-    ...doc,
-    name: doc.station_name,
-    location: { lat: doc._geo.lat, lng: doc._geo.lng },
-    gtfsStopId: doc.gtfs_stop_id,
-    motisStopId: doc.motis_stop_id,
-    locationType: doc.location_type,
-    parentStation: doc.parent_station_id ?? undefined,
-  }
+  const cacheKey = `doc:${id}`
+  const run = () => fetchStopDocumentById(id)
+  return stopDocCache ? stopDocCache.get(cacheKey, run) : run()
 }
 
 export const getStopById = getStopDocumentById

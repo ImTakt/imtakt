@@ -1,9 +1,24 @@
 import type { JourneyEndpointSnap, PlaceRef, Stop } from "@imtakt/core"
-import { MAX_SNAP_RADIUS_M } from "../config"
+import { config, MAX_SNAP_RADIUS_M } from "../config"
+import { createKeyedCache } from "../lib/keyed-cache"
 import { getStopDocumentById, searchStopsByGeo, searchStopsByName } from "./meilisearch"
 import { getPrimaryStopForStation, getStopById as getDbStop, isDbConfigured } from "./stops-db"
 
 export type ResolvedPlace = { stop: Stop; motisStopId: string; walkMeters?: number }
+
+const placeCache =
+  config.placeResolveCacheSec > 0
+    ? createKeyedCache<ResolvedPlace>({
+        ttlMs: config.placeResolveCacheSec * 1000,
+        maxEntries: config.placeResolveCacheMax,
+      })
+    : null
+
+function placeCacheKey(place: PlaceRef): string {
+  if (typeof place === "string") return `s:${place.trim().toLowerCase()}`
+  if ("stopId" in place) return `id:${place.stopId}`
+  return `geo:${place.lat.toFixed(5)},${place.lng.toFixed(5)}`
+}
 
 function haversineM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000
@@ -51,6 +66,12 @@ async function routingStopForStation(stationId: string, fallbackStopId?: string)
 }
 
 export async function resolvePlaceRef(place: PlaceRef): Promise<ResolvedPlace> {
+  const key = placeCacheKey(place)
+  const run = () => resolvePlaceRefUncached(place)
+  return placeCache ? placeCache.get(key, run) : run()
+}
+
+async function resolvePlaceRefUncached(place: PlaceRef): Promise<ResolvedPlace> {
   if (typeof place === "string") {
     const matches = await searchStopsByName(place, 1)
     if (!matches[0]) throw new Error(`Could not resolve place: ${place}`)
