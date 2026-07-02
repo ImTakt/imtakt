@@ -14,6 +14,7 @@ import {
 import { createRoutingProvider } from "./adapters/motis"
 import { validationErrorResponse, publicErrorMessage } from "./lib/public-errors"
 import { archiveMiddleware } from "./middleware/archive"
+import { rateLimitMiddleware } from "./middleware/rate-limit"
 import { getFeedMeta } from "./services/feed-meta"
 import { getHealthStatus } from "./services/health"
 import { searchStopsByGeo, searchStopsByName } from "./services/meilisearch"
@@ -24,6 +25,7 @@ const router = createRoutingProvider()
 export const app = new Hono()
 
 app.use("*", compress())
+app.use("/v1/*", rateLimitMiddleware)
 app.use("/v1/*", archiveMiddleware)
 
 app.get("/health", async (c) => {
