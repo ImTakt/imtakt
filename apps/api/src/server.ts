@@ -27,4 +27,10 @@ void warmConnections().then(() => {
   if (!config.isProduction) console.log("Upstream connections warmed")
 })
 
+if (config.warmIntervalSec > 0) {
+  setInterval(() => {
+    void warmConnections()
+  }, config.warmIntervalSec * 1000).unref()
+}
+
 export { server }
