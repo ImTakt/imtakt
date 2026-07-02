@@ -1,0 +1,21 @@
+{
+  "name": "@imtakt/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "imtakt": "./src/main.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@imtakt/core": "workspace:*",
+    "@imtakt/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

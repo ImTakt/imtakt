@@ -1,0 +1,68 @@
+#!/usr/bin/env bun
+import { createImTakt } from "@imtakt/sdk"
+import { IMTAKT_HOSTED_API_URL } from "@imtakt/core"
+
+const args = process.argv.slice(2)
+const json = args.includes("--json")
+const serverFlag = args.indexOf("--server")
+const baseUrl =
+  serverFlag >= 0 ? args[serverFlag + 1] : process.env.IMTAKT_SERVER_URL ?? IMTAKT_HOSTED_API_URL
+
+const imtakt = createImTakt({ baseUrl })
+
+function out(data: unknown) {
+  console.log(json ? JSON.stringify(data, null, 2) : formatHuman(data))
+}
+
+function formatHuman(data: unknown): string {
+  return typeof data === "string" ? data : JSON.stringify(data, null, 2)
+}
+
+async function main() {
+  const cmd = args[0]
+  if (!cmd || cmd.startsWith("-")) {
+    console.error(`Usage: imtakt <journey|board|travel-time|station> ... [--json] [--server URL]`)
+    process.exit(1)
+  }
+
+  if (cmd === "journey" || cmd === "plan") {
+    const from = args[1]
+    const to = args[2]
+    if (!from || !to) throw new Error("Usage: imtakt journey <from> <to>")
+    const atIdx = args.indexOf("--at")
+    const when = atIdx >= 0 ? args[atIdx + 1] : undefined
+    out(await imtakt.planJourney({ from, to, when }))
+    return
+  }
+
+  if (cmd === "board" || cmd === "view") {
+    const station = args[1]
+    if (!station) throw new Error("Usage: imtakt board <station>")
+    const found = await imtakt.findStops({ place: station, limit: 1 })
+    if (!found.matches[0]) throw new Error(`Station not found: ${station}`)
+    out(await imtakt.stationBoard(found.matches[0].id))
+    return
+  }
+
+  if (cmd === "travel-time") {
+    const from = args[1]
+    const to = args[2]
+    if (!from || !to) throw new Error("Usage: imtakt travel-time <from> <to>")
+    out(await imtakt.travelTime({ from, to }))
+    return
+  }
+
+  if (cmd === "station" || cmd === "find") {
+    const query = args[1]
+    if (!query) throw new Error("Usage: imtakt station <query>")
+    out(await imtakt.findStops({ place: query }))
+    return
+  }
+
+  throw new Error(`Unknown command: ${cmd}`)
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err)
+  process.exit(1)
+})
