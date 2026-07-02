@@ -4,24 +4,23 @@ Prove an outsider can plan a multimodal DE trip in ≤3 MCP calls.
 
 ## Prerequisites
 
-- Hosted API at `https://api.imtakt.dev` (health: `GET /health`)
-- `@imtakt/mcp@0.1.0` on npm
+- Hosted API at `https://api.imtakt.dev` (`GET /health` → `ok: true`)
+- `@imtakt/mcp` on npm
 
-## Cursor / Claude Desktop config
+## MCP config
 
 ```json
 {
   "mcpServers": {
     "imtakt": {
       "command": "npx",
-      "args": ["-y", "@imtakt/mcp@0.1.0"],
-      "env": {
-        "IMTAKT_SERVER_URL": "https://api.imtakt.dev"
-      }
+      "args": ["-y", "@imtakt/mcp"]
     }
   }
 }
 ```
+
+No `env` required — defaults to hosted API.
 
 ## Demo prompt
 
@@ -34,3 +33,5 @@ Prove an outsider can plan a multimodal DE trip in ≤3 MCP calls.
 - [ ] ≤3 MCP tool calls for coord→coord multimodal trip
 - [ ] Response includes `meta.from.snappedStop` and `meta.to.snappedStop`
 - [ ] Non-team agent integration documented (issue or screenshot)
+
+See [docs/getting-started.md](../docs/getting-started.md) and [docs/mcp.md](../docs/mcp.md).
