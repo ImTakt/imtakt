@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | **imtakt** | [AGENTS.md](https://github.com/ImTakt/imtakt) | Strategy, adoption map, shipping tracker |
 | **imtakt** (here) | this file | API + MCP + SDK + CLI |
-| **imtakt-gtfs** | [AGENTS.md](https://github.com/ImTakt/imtakt-gtfs/blob/main/AGENTS.md) | Internal harness — feeds, index, router |
+| **imtakt-gtfs** | [AGENTS.md](https://github.com/ImTakt/imtakt-gtfs/blob/main/AGENTS.md) | Internal harness — feeds, index, imtakt-router |
 | **imtakt-apps** | [AGENTS.md](https://github.com/ImTakt/imtakt-apps/blob/main/AGENTS.md) | imtakt.dev site + `/try` only |
 
 **Continue execution:** [adoption-map.md](https://github.com/ImTakt/imtakt) (A1–A8 checklist).

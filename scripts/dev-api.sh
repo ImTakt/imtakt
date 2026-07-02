@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start ImTakt Server locally — expects Meilisearch + feed manifest from sibling imtakt-gtfs
+# Start ImTakt Server locally — point at hosted or local harness via env.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GTFS_ROOT="${IMTAKT_GTFS_ROOT:-${ROOT}/../imtakt-gtfs}"
@@ -14,18 +14,13 @@ export DATABASE_URL="${DATABASE_URL:-postgres://imtakt:imtakt-dev@localhost:5432
 export MOTIS_URL="${MOTIS_URL:-http://localhost:8080}"
 
 if ! curl -sf "${MEILI_URL}/health" >/dev/null; then
-  echo "Data harness not reachable at ${MEILI_URL}" >&2
-  echo "Run in imtakt-gtfs: docker compose up -d" >&2
+  echo "Meilisearch not reachable at ${MEILI_URL}" >&2
+  echo "Set MEILI_URL / MEILI_MASTER_KEY or start local compose in imtakt-gtfs." >&2
   exit 1
 fi
 
-if [[ ! -f "${FEED_MANIFEST_PATH}" ]]; then
-  echo "Feed manifest missing at ${FEED_MANIFEST_PATH}" >&2
-  echo "Run in imtakt-gtfs: bun run feeds:refresh" >&2
-fi
-
 echo "ImTakt Server → http://localhost:${PORT}"
-echo "  Stops:    ${MEILI_URL}"
-echo "  GTFS:     ${GTFS_ROOT}"
+echo "  Meili:    ${MEILI_URL}"
+echo "  Router:   ${MOTIS_URL}"
 echo "  Manifest: ${FEED_MANIFEST_PATH}"
 exec bun run --filter @imtakt/api dev
