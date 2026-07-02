@@ -1,6 +1,15 @@
 # ImTakt — agent guide
 
-**Mandate:** Adoption repo — `@imtakt/mcp`, `@imtakt/sdk`, `@imtakt/cli`, `@imtakt/core`. Default path is **hosted** (`api.imtakt.dev`); no server code in this repo.
+**Mandate:** Adoption repo — `@imtakt/mcp` and `@imtakt/cli` only for public surface. No login on hosted path.
+
+## Public adoption (now)
+
+| Package | Docs |
+| --- | --- |
+| `@imtakt/mcp` | [docs/mcp.md](docs/mcp.md) |
+| `@imtakt/cli` | [docs/cli.md](docs/cli.md) |
+
+SDK, HTTP reference, agent SKILL — [docs/later.md](docs/later.md) (not adoption blockers).
 
 ## Ecosystem
 
@@ -19,7 +28,8 @@
 | Goal | Read |
 | --- | --- |
 | Adoption defaults | `packages/core/src/constants.ts` → `IMTAKT_HOSTED_API_URL` |
-| MCP tools | `mcp/src/tools.ts` |
+| MCP tools | `mcp/src/main.ts` |
+| Public docs | `docs/` |
 | SDK | `packages/sdk/` |
 | CLI | `packages/cli/` |
 | Shipping truth | [implementation-status.md](implementation-status.md) |
