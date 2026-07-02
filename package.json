@@ -3,13 +3,11 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/*",
     "mcp"
   ],
   "scripts": {
-    "typecheck": "bun run --filter './packages/*' typecheck && bun run --filter './apps/*' typecheck && bun run --filter './mcp' typecheck",
-    "build": "bun run --filter './packages/*' build",
-    "dev:api": "bash scripts/dev-api.sh"
+    "typecheck": "bun run --filter './packages/*' typecheck && bun run --filter './mcp' typecheck",
+    "build": "bun run --filter './packages/*' build"
   },
   "devDependencies": {
     "@types/bun": "latest",
