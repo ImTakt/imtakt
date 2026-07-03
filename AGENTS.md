@@ -29,7 +29,7 @@ Integrators (SDK, HTTP, self-host): [docs/integrators.md](docs/integrators.md).
 | Goal | Read |
 | --- | --- |
 | Adoption defaults | `packages/core/src/constants.ts` → `IMTAKT_HOSTED_API_URL` |
-| Agent harness | [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) |
+| Agent harness | [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) · source: **imtakt-apps** `site/lib/agent-skills.ts` |
 | MCP tools | `mcp/src/main.ts` |
 | Public docs | `docs/` |
 | SDK | `packages/sdk/` |
@@ -53,7 +53,7 @@ imtakt/
 2. **Public surfaces** — MCP and README: say **ImTakt Server** only. Never name Meilisearch, Postgres, or bootstrap router.
 3. **Defaults** — clients point at `https://api.imtakt.dev`; `IMTAKT_SERVER_URL` overrides for local dev.
 4. **Data plane** — feed sync, index build: **imtakt-gtfs**, not this repo.
-5. **Site** — imtakt.dev hosts the agent harness and MCP copy blocks; canonical prose lives in `docs/`.
+5. **Site** — imtakt.dev generates the agent harness (`SKILL.md`, Codex plugin) from **imtakt-apps**; canonical MCP/CLI prose lives in `docs/` here.
 
 ## Local dev (contributors)
 

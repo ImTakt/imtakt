@@ -10,7 +10,9 @@
 | [cli.md](./cli.md) | **CLI** — terminal |
 | [integrators.md](./integrators.md) | SDK, HTTP, self-host |
 
-Hosted API: [api.imtakt.dev](https://api.imtakt.dev) · Playground: [imtakt.dev/try](https://imtakt.dev/try) · Harness: [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
+Hosted API: [api.imtakt.dev](https://api.imtakt.dev) · Playground: [imtakt.dev/try](https://imtakt.dev/try)
+
+**Harness (canonical):** [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) — live UI, `SKILL.md`, Codex plugin. Generated in [imtakt-apps](https://github.com/ImTakt/imtakt-apps/tree/main/site/lib).
 
 Reference copies (integrators, not primary adoption):
 
