@@ -32,11 +32,16 @@ export function registerImTaktTools(server: McpServer, client: ImTaktClient): vo
 
   server.tool(
     "imtakt_plan_journey",
-    "Plan a multimodal journey in Germany between two places (name, coordinates, or stop ID).",
+    "Plan a multimodal journey in Germany between two places (name, coordinates, or stop ID). Returns up to 3 options with legs, transfers, realtime delays, and runIds. Ground `when` in the current system clock (e.g. `date -u`) — never guess today's date.",
     {
       from: PlaceRefSchema.describe("Origin — place string, {lat,lng}, or {stopId}"),
       to: PlaceRefSchema.describe("Destination — place string, {lat,lng}, or {stopId}"),
-      when: z.string().datetime().describe("ISO 8601 departure time"),
+      when: z
+        .string()
+        .datetime()
+        .describe(
+          "ISO 8601 UTC departure time. Compute from the CURRENT system clock (`date -u +%Y-%m-%dT%H:%M:%SZ`); convert Europe/Berlin local intents to UTC.",
+        ),
     },
     async ({ from, to, when }) => {
       try {
