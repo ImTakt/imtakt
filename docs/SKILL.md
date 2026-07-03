@@ -1,8 +1,8 @@
-# ImTakt — Agent skill (draft)
+# ImTakt — Agent skill (repo reference)
 
-> **Not on the adoption path yet.** Agent self-onboarding ships with self-host. Use [MCP](./mcp.md) or [CLI](./cli.md) today.
+> **Canonical skill:** [imtakt.dev/agent-onboarding/SKILL.md](https://imtakt.dev/agent-onboarding/SKILL.md) · **Harness:** [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
 
-<!-- DRAFT — do not promote until self-host GA -->
+This file is a repo-local reference. Prefer the hosted skill URL for agent installs.
 
 ## What ImTakt is
 
