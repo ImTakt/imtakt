@@ -1,7 +1,11 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "src"
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@imtakt/core": ["../core/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

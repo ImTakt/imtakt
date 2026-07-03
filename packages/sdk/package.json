@@ -1,19 +1,41 @@
 {
   "name": "@imtakt/sdk",
   "version": "0.1.0",
+  "description": "HTTP client for ImTakt Server /v1",
+  "license": "MIT",
+  "homepage": "https://imtakt.dev/mcp",
+  "keywords": ["gtfs", "transit", "germany", "imtakt", "api-client"],
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ImTakt/imtakt.git",
+    "directory": "packages/sdk"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "workspace:*"
+    "@imtakt/core": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

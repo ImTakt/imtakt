@@ -1,20 +1,17 @@
 # @imtakt/sdk
 
-TypeScript client for **ImTakt Server** `/v1`.
+HTTP client for ImTakt Server `/v1`.
 
 ```typescript
 import { createImTakt } from "@imtakt/sdk"
 
-const imtakt = createImTakt()
-await imtakt.planJourney({ from: "Berlin Hbf", to: "München Hbf" })
+const imtakt = createImTakt() // default: https://api.imtakt.dev
+const stops = await imtakt.findStops({ place: "Alexanderplatz" })
 ```
-
-Default base URL: `https://api.imtakt.dev`
 
 ## Docs
 
-- [SDK guide](../docs/sdk.md)
-- [API reference](../docs/api.md)
+- [SDK guide](https://github.com/ImTakt/imtakt/blob/main/docs/sdk.md)
 
 ## License
 
