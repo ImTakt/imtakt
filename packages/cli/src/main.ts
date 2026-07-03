@@ -21,16 +21,16 @@ function formatHuman(data: unknown): string {
 async function main() {
   const cmd = args[0]
   if (!cmd || cmd.startsWith("-")) {
-    console.error(`Usage: imtakt <journey|board|travel-time|station> ... [--json] [--server URL]`)
+    console.error(`Usage: imtakt <journey|board|train|station> ... [--json] [--server URL]`)
     process.exit(1)
   }
 
   if (cmd === "journey" || cmd === "plan") {
     const from = args[1]
     const to = args[2]
-    if (!from || !to) throw new Error("Usage: imtakt journey <from> <to>")
+    if (!from || !to) throw new Error("Usage: imtakt journey <from> <to> [--at <when>]")
     const atIdx = args.indexOf("--at")
-    const when = atIdx >= 0 ? args[atIdx + 1] : undefined
+    const when = atIdx >= 0 ? args[atIdx + 1] : new Date().toISOString()
     out(await imtakt.planJourney({ from, to, when }))
     return
   }
@@ -44,11 +44,10 @@ async function main() {
     return
   }
 
-  if (cmd === "travel-time") {
-    const from = args[1]
-    const to = args[2]
-    if (!from || !to) throw new Error("Usage: imtakt travel-time <from> <to>")
-    out(await imtakt.travelTime({ from, to }))
+  if (cmd === "train") {
+    const runId = args[1]
+    if (!runId) throw new Error("Usage: imtakt train <runId>")
+    out(await imtakt.viewTrain(runId))
     return
   }
 
