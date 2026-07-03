@@ -44,7 +44,7 @@ server.tool(
   {
     from: PlaceRefSchema.describe("Origin — place string, {lat,lng}, or {stopId}"),
     to: PlaceRefSchema.describe("Destination — place string, {lat,lng}, or {stopId}"),
-    when: z.string().datetime().optional().describe("ISO departure time"),
+    when: z.string().datetime().describe("ISO 8601 departure time"),
   },
   async ({ from, to, when }) => {
     const result = await imtakt.planJourney({ from, to, when })
@@ -81,14 +81,13 @@ server.tool(
 )
 
 server.tool(
-  "imtakt_travel_time",
-  "Get fastest travel time and transfer count between two places in Germany.",
+  "imtakt_view_train",
+  "View live full stats for a train run by runId (from plan_journey legs or view_station departures).",
   {
-    from: PlaceRefSchema,
-    to: PlaceRefSchema,
+    runId: z.string().min(1).describe("Stable train run id from a leg or board departure"),
   },
-  async ({ from, to }) => {
-    const result = await imtakt.travelTime({ from, to })
+  async ({ runId }) => {
+    const result = await imtakt.viewTrain(runId)
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     }
