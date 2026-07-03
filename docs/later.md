@@ -6,7 +6,6 @@ These are **not** part of the current adoption path. MCP + CLI on the hosted API
 
 | Item | Notes |
 | --- | --- |
-| **Agent self-onboarding** | Fetchable `SKILL.md`, autonomous signup flows |
 | **API keys / login** | Billing and authenticated tiers |
 | **`@imtakt/sdk`** | App embeds — see [sdk.md](./sdk.md) when you need it |
 | **Raw HTTP cookbook** | [api.md](./api.md) |
@@ -21,6 +20,12 @@ If you must call HTTP or TypeScript directly (not MCP/CLI):
 
 Still **no API key** on hosted until billing ships.
 
-## Draft agent skill (not promoted yet)
+## Agent harness (live on imtakt.dev)
 
-A draft skill file exists at [SKILL.md](./SKILL.md) for future agent onboarding. Do not link it from marketing until self-host GA.
+Agent self-onboarding ships on the site, not in this repo:
+
+- Harness: [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
+- Skill: [imtakt.dev/agent-onboarding/SKILL.md](https://imtakt.dev/agent-onboarding/SKILL.md)
+- Codex plugin: [imtakt.dev/agent-onboarding/codex/plugin.json](https://imtakt.dev/agent-onboarding/codex/plugin.json)
+
+Repo copy [SKILL.md](./SKILL.md) is a reference snapshot for contributors.
