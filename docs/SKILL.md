@@ -6,7 +6,7 @@ This file is a repo-local reference. Prefer the hosted skill URL for agent insta
 
 ## What ImTakt is
 
-ImTakt is **German transit intelligence for AI agents** — plan journeys, read departure boards, resolve stops, and query travel times over the full national GTFS network.
+ImTakt is **German transit intelligence for AI agents** — plan journeys, read departure boards, resolve stops, and view live train runs over the full national GTFS network.
 
 - **Hosted API:** `https://api.imtakt.dev/v1`
 - **No API key** on the default hosted path
@@ -36,20 +36,21 @@ Restart the MCP client after saving. No `env` block needed for hosted API.
 | `imtakt_find_station` | User gives a place name or coordinates |
 | `imtakt_plan_journey` | User wants A→B with legs and transfers |
 | `imtakt_view_station` | User wants departures at a station |
-| `imtakt_travel_time` | User only needs duration / transfer count |
+| `imtakt_view_train` | User wants full stop-by-stop stats for a specific train run |
 
 ## Example user prompts
 
 - "Plan Berlin Hbf to München Hbf tomorrow morning."
 - "Next trains from Köln Hbf."
 - "Find stations near Alexanderplatz."
-- "How long from Hamburg to Frankfurt by train?"
+- "How long from Hamburg to Frankfurt by train?" (use `imtakt_plan_journey` and read `durationMinutes`)
 
 ## Example agent steps
 
-1. **Named trip:** one call to `imtakt_plan_journey` with `from` / `to` strings.
+1. **Named trip:** one call to `imtakt_plan_journey` with `from` / `to` strings and required `when`.
 2. **Coordinates:** `imtakt_plan_journey` with `{ lat, lng }` objects — API geo-snaps to nearest stops.
 3. **Board:** `imtakt_find_station` if needed, then `imtakt_view_station`.
+4. **Train detail:** read `runId` from a leg or departure, then `imtakt_view_train`.
 
 Full demo: [examples/agent-demo.md](https://github.com/ImTakt/imtakt/blob/main/examples/agent-demo.md)
 
@@ -62,7 +63,7 @@ npm install @imtakt/sdk
 ```typescript
 import { createImTakt } from "@imtakt/sdk"
 const imtakt = createImTakt()
-await imtakt.planJourney({ from: "Berlin Hbf", to: "München Hbf" })
+await imtakt.planJourney({ from: "Berlin Hbf", to: "München Hbf", when: new Date().toISOString() })
 ```
 
 ## Verify API

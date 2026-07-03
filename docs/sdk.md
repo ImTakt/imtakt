@@ -48,19 +48,19 @@ await imtakt.findStops({ lat: 52.5219, lng: 13.4132 })
 await imtakt.planJourney({
   from: "Berlin Hbf",
   to: { lat: 48.1374, lng: 11.5755 },
-  when: "2026-07-03T09:00:00.000Z", // optional
+  when: "2026-07-03T09:00:00.000Z",
 })
 ```
 
 → `POST /v1/journeys/plan`
 
-### `travelTime(request)`
+### `viewTrain(runId)`
 
 ```typescript
-await imtakt.travelTime({ from: "Hamburg Hbf", to: "Frankfurt(Main)Hbf" })
+await imtakt.viewTrain("imtakt_run_v1:...")
 ```
 
-→ `POST /v1/journeys/travel-time`
+→ `GET /v1/trains/:runId`
 
 ### `stationBoard(stopId)`
 

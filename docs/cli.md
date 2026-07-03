@@ -16,7 +16,7 @@ npx @imtakt/cli --help
 | --- | --- |
 | `imtakt journey <from> <to>` | Plan a journey |
 | `imtakt board <station>` | Departure board |
-| `imtakt travel-time <from> <to>` | Fastest time + transfers |
+| `imtakt train <runId>` | Live full stats for a train run |
 | `imtakt station <query>` | Find stops by name |
 
 Aliases: `plan` for journey, `view` for board, `find` for station.
@@ -27,7 +27,7 @@ Aliases: `plan` for journey, `view` for board, `find` for station.
 | --- | --- |
 | `--json` | Structured JSON output |
 | `--server <url>` | Override API base (default: hosted) |
-| `--at <iso>` | Departure time for journey (ISO 8601) |
+| `--at <iso>` | Departure time for journey (ISO 8601; defaults to now) |
 
 Environment: `IMTAKT_SERVER_URL` overrides the default API base.
 

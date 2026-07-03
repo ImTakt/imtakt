@@ -72,7 +72,7 @@ Same JSON shape under the client’s `mcpServers` key. See your client’s MCP d
 | `imtakt_find_station` | Resolve place name or coordinates → stops | `POST /v1/stops/find` |
 | `imtakt_plan_journey` | Plan A→B with legs and transfers | `POST /v1/journeys/plan` |
 | `imtakt_view_station` | Departure board at a stop | `GET /v1/stops/:id/board` |
-| `imtakt_travel_time` | Fastest duration + transfer count | `POST /v1/journeys/travel-time` |
+| `imtakt_view_train` | Live full stats for a train run | `GET /v1/trains/:runId` |
 
 ### Arguments
 
@@ -84,26 +84,26 @@ Same JSON shape under the client’s `mcpServers` key. See your client’s MCP d
 **`imtakt_plan_journey`**
 
 - `from`, `to` — string place name, `{ lat, lng }`, or `{ stopId }`
-- `when` — optional ISO 8601 departure time
+- `when` — required ISO 8601 departure time
 
 **`imtakt_view_station`**
 
 - `station` — name, coordinates, or stop ID
 
-**`imtakt_travel_time`**
+**`imtakt_view_train`**
 
-- `from`, `to` — same shapes as plan journey
+- `runId` — stable train run id from a journey leg or board departure
 
 ## Example prompts
 
 ```
 Use imtakt_find_station to find stops matching "Dom/Hbf Köln".
 
-Use imtakt_plan_journey from Berlin Alexanderplatz to Berlin Hbf leaving now.
+Use imtakt_plan_journey from Berlin Alexanderplatz to Berlin Hbf at 2026-07-03T09:00:00+02:00.
 
 Use imtakt_view_station for München Hbf and show the next five departures.
 
-Use imtakt_travel_time from Hamburg Hbf to Frankfurt(Main)Hbf.
+Use imtakt_view_train with a runId from a board departure to show the full stop list.
 ```
 
 ## Troubleshooting

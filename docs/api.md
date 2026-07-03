@@ -37,24 +37,24 @@ Plan multimodal journeys.
 ```bash
 curl -s -X POST https://api.imtakt.dev/v1/journeys/plan \
   -H 'content-type: application/json' \
-  -d '{"from":"Berlin Hbf","to":"München Hbf"}' | jq .
+  -d '{"from":"Berlin Hbf","to":"München Hbf","when":"2026-07-03T09:00:00Z"}' | jq .
 ```
 
-**Body:** `{ from: PlaceRef, to: PlaceRef, when?: string }`
+**Body:** `{ from: PlaceRef, to: PlaceRef, when: string }`
 
 `PlaceRef` = string name · `{ lat, lng }` · `{ stopId }`
 
-**Response:** `{ journeys: Journey[], meta: { from, to } }` with snapped stops in `meta`.
+**Response:** `{ journeys: Journey[], meta: { from, to } }` with snapped stops in `meta`. Legs include optional `runId`.
 
-### `POST /v1/journeys/travel-time`
+### `GET /v1/trains/:runId`
 
-Fastest duration without full leg detail.
+Live full stats for a train run (stop-by-stop itinerary, delays).
 
 ```bash
-curl -s -X POST https://api.imtakt.dev/v1/journeys/travel-time \
-  -H 'content-type: application/json' \
-  -d '{"from":"Hamburg Hbf","to":"Frankfurt(Main)Hbf"}' | jq .
+curl -s https://api.imtakt.dev/v1/trains/RUN_ID | jq .
 ```
+
+`runId` comes from a journey leg or board departure.
 
 ### `GET /v1/stops/:id/board`
 
@@ -75,7 +75,7 @@ Feed freshness metadata (`syncedAt`, `stopCount`, `stale`).
 | `POST /v1/stops/find` | `imtakt_find_station` |
 | `POST /v1/journeys/plan` | `imtakt_plan_journey` |
 | `GET /v1/stops/:id/board` | `imtakt_view_station` |
-| `POST /v1/journeys/travel-time` | `imtakt_travel_time` |
+| `GET /v1/trains/:runId` | `imtakt_view_train` |
 
 ## Errors
 

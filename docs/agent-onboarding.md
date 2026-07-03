@@ -51,7 +51,7 @@ No `env` block for hosted API. Details: [mcp.md](./mcp.md)
 | `imtakt_find_station` | Place name or coordinates |
 | `imtakt_plan_journey` | A→B with legs and transfers |
 | `imtakt_view_station` | Departures at a station |
-| `imtakt_travel_time` | Duration and transfer count only |
+| `imtakt_view_train` | Live full stats for a train run |
 
 ## Links
 

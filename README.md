@@ -52,7 +52,7 @@ That's the full config. No `env`. No API key. Defaults to **`https://api.imtakt.
 | `imtakt_find_station` | Resolve place or coordinates → stops |
 | `imtakt_plan_journey` | Plan A→B with legs and transfers |
 | `imtakt_view_station` | Departure board at a stop |
-| `imtakt_travel_time` | Fastest duration + transfer count |
+| `imtakt_view_train` | Live full stats for a train run |
 
 → [docs/mcp.md](docs/mcp.md) · [imtakt.dev/mcp](https://imtakt.dev/mcp)
 
@@ -61,10 +61,10 @@ That's the full config. No `env`. No API key. Defaults to **`https://api.imtakt.
 ## CLI (terminal)
 
 ```bash
-npx @imtakt/cli journey "Berlin Hbf" "München Hbf"
+npx @imtakt/cli journey "Berlin Hbf" "München Hbf" --at 2026-07-03T09:00:00Z
 npx @imtakt/cli board "Köln Hbf"
 npx @imtakt/cli station "Frankfurt"
-npx @imtakt/cli travel-time "Hamburg Hbf" "Frankfurt(Main)Hbf" --json
+npx @imtakt/cli train RUN_ID --json
 ```
 
 Same hosted API. No login.

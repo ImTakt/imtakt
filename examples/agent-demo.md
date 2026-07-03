@@ -24,7 +24,7 @@ No `env` required — defaults to hosted API.
 
 ## Demo prompt
 
-> Plan a trip from coordinates 52.5219, 13.4132 to 52.5250, 13.3694 leaving now. Use imtakt_plan_journey once.
+> Plan a trip from coordinates 52.5219, 13.4132 to 52.5250, 13.3694 at 2026-07-03T09:00:00Z. Use imtakt_plan_journey once.
 
 **Expected:** One MCP call returns journeys with snapped stops (Alexanderplatz area → Hauptbahnhof area) and multimodal legs.
 

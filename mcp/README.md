@@ -24,7 +24,7 @@ No API key. No env vars for hosted adoption.
 | `imtakt_find_station` | Resolve place or coordinates → stops |
 | `imtakt_plan_journey` | Plan A→B with legs |
 | `imtakt_view_station` | Departure board |
-| `imtakt_travel_time` | Duration + transfers |
+| `imtakt_view_train` | Live full train stats |
 
 ## Docs
 
