@@ -1,16 +1,39 @@
 {
   "name": "@imtakt/core",
   "version": "0.1.0",
+  "description": "Shared schemas and constants for ImTakt transit intelligence clients",
+  "license": "MIT",
+  "homepage": "https://imtakt.dev",
+  "keywords": ["gtfs", "transit", "germany", "imtakt", "zod"],
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ImTakt/imtakt.git",
+    "directory": "packages/core"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.build.json",
+    "test": "bun test src/",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "zod": "^3.24.2"
