@@ -6,6 +6,7 @@
   "homepage": "https://imtakt.dev/mcp",
   "keywords": ["mcp", "model-context-protocol", "gtfs", "transit", "germany", "imtakt", "cursor", "claude"],
   "type": "module",
+  "sideEffects": false,
   "engines": {
     "node": ">=18"
   },
@@ -27,6 +28,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "test": "bun test src/",
     "dev": "bun run src/main.ts",
     "prepublishOnly": "npm run build"
   },
