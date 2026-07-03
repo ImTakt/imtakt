@@ -30,8 +30,15 @@ const imtakt = createImTakt()
 ```typescript
 type ImTaktClientOptions = {
   baseUrl?: string // default: IMTAKT_HOSTED_API_URL or process.env.IMTAKT_SERVER_URL
+  timeoutMs?: number // default: 30_000
+  fetch?: typeof fetch // inject for tests or proxies
 }
 ```
+
+Requests and responses are validated with Zod schemas from `@imtakt/core`. Failures throw:
+
+- `ImTaktApiError` — HTTP 4xx/5xx (includes API `error` message when present)
+- `ImTaktValidationError` — response body does not match the contract
 
 ### `findStops(request)`
 
@@ -73,15 +80,17 @@ await imtakt.stationBoard(matches[0]!.id)
 
 ## Types
 
-Import request/response types from `@imtakt/core`:
+Request/response types are re-exported from `@imtakt/sdk` or import from `@imtakt/core`:
 
 ```typescript
-import type { PlanJourneyResponse, StopMatch } from "@imtakt/core"
+import { ImTaktApiError, type PlanJourneyResponse } from "@imtakt/sdk"
 ```
 
 ## Errors
 
-Failed HTTP responses throw `Error` with message `ImTakt API <path>: <status>`.
+- `ImTaktApiError` — non-2xx HTTP; `.status`, `.path`, `.message`, optional `.body`
+- `ImTaktValidationError` — response failed Zod contract check
+- Timeout — `Error` with `timed out after …ms`
 
 ## Local dev
 
