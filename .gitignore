@@ -5,3 +5,5 @@ dist/
 *.tsbuildinfo
 package-lock.json
 data/
+private/
+*.pem

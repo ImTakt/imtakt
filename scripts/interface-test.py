@@ -117,10 +117,10 @@ def main() -> int:
             elapsed_ms=ms,
             detail=f"ok={health.get('ok')} stops={stops_ok} journeys={journeys_ok} board={board_ok} realtime={realtime_ok} indexed={indexed}",
             notes=(
-                ["journeys.ok false — journeys capability unavailable"]
+                ["journeys capability unavailable — check GET /health"]
                 if http == 200 and not journeys_ok
                 else (
-                    ["realtime.ok false — realtime capability unavailable"]
+                    ["realtime capability unavailable — check GET /health"]
                     if http == 200 and stops_ok and not realtime_ok
                     else []
                 )
@@ -230,7 +230,7 @@ def main() -> int:
                 method="GET",
                 path="/v1/trains/:runId",
                 status="SKIP",
-                detail="No runId on journey legs (runId unavailable)",
+                detail="No runId on journey legs",
                 notes=["imtakt_view_train needs runId from board or journey leg"],
             )
         )

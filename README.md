@@ -105,7 +105,7 @@ export IMTAKT_SERVER_URL=http://localhost:3011   # contributors / self-host only
 ```text
 imtakt/          MCP + CLI + core schemas  ← adoption
 imtakt-router/   ImTakt Server (hosted API)
-imtakt-gtfs/     Transit engine (ops)
+imtakt-gtfs/     Feeds and stop index
 imtakt-apps/     imtakt.dev
 ```
 
@@ -115,7 +115,7 @@ imtakt-apps/     imtakt.dev
 bun install && bun run typecheck && bun run build
 ```
 
-Workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml) · Map: [imtakt)
+Workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml)
 
 ---
 
@@ -131,6 +131,6 @@ API keys and billing ship after public launch.
 
 ## Status
 
-[implementation-status.md](implementation-status.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
+[STATUS.md](STATUS.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
 
 **License:** MIT

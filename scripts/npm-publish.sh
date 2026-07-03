@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish @imtakt/* 0.1.0 — run after api.imtakt.dev is live (A4).
+# Publish @imtakt/* — run after api.imtakt.dev health is green.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -9,7 +9,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
   DRY_RUN=true
 fi
 
-npm whoami >/dev/null || { echo "Run: npm login (npm org maintainer org account)" >&2; exit 1; }
+npm whoami >/dev/null || { echo "Run: npm login" >&2; exit 1; }
 
 echo "==> Pre-publish checks"
 bash scripts/npm-pack-smoke.sh
@@ -38,13 +38,7 @@ fi
 for pkg in @imtakt/core @imtakt/sdk @imtakt/cli @imtakt/mcp; do
   echo "Publishing ${pkg}..."
   if ! npm publish -w "$pkg" "${PUBLISH_FLAGS[@]}"; then
-    echo "" >&2
-    echo "Publish failed. If you see E403 / 2FA:" >&2
-    echo "  npm login   # complete OTP when prompted" >&2
-    echo "  # or set a granular token with publish + bypass-2FA:" >&2
-    echo "  npm config set //registry.npmjs.org/:_authToken=<token>" >&2
-    echo "  # or pass OTP inline:" >&2
-    echo "  npm publish -w ${pkg} --access public --otp=<code>" >&2
+    echo "Publish failed. Run npm login and retry." >&2
     exit 1
   fi
 done

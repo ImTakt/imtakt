@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-launch verification — run July 6 (day before) and after npm publish.
+# Pre-release verification against the hosted or local API.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 API="${IMTAKT_SERVER_URL:-https://api.imtakt.dev}"
@@ -13,7 +13,7 @@ echo "1. Health"
 HEALTH=$(curl -sf -m 15 "${API}/health" || curl -s -m 15 "${API}/health")
 echo "${HEALTH}" | python3 -m json.tool 2>/dev/null || echo "${HEALTH}"
 if ! echo "${HEALTH}" | python3 -c 'import sys,json; d=json.load(sys.stdin); exit(0 if d.get("capabilities",{}).get("journeys",{}).get("ok") else 1)' 2>/dev/null; then
-  echo "WARN: health journeys.ok=false — journeys capability unavailable; continuing endpoint checks"
+  echo "WARN: health journeys.ok=false — continuing endpoint checks"
 fi
 
 echo ""

@@ -8,9 +8,8 @@ Thanks for helping improve the **adoption surface** (MCP, SDK, CLI) and docs.
 | --- | --- |
 | **imtakt** (here) | MCP, SDK, CLI, docs |
 | **imtakt-router** | ImTakt Server `/v1` |
-| **imtakt-gtfs** | Transit engine + feeds |
+| **imtakt-gtfs** | Feeds and stop index |
 | **imtakt-docs** | Extended documentation |
-| **imtakt** | Strategy (markdown only) |
 
 ## Development
 
@@ -22,20 +21,16 @@ bun run test
 bun run pack:smoke   # simulates npx install path vs api.imtakt.dev
 ```
 
-Local API (full stack):
+Local API (full stack): see [imtakt-router LOCALDEV](https://github.com/ImTakt/imtakt-router/blob/main/LOCALDEV.md).
 
 ```bash
-# See imtakt-router/LOCALDEV.md
-cd ../imtakt-gtfs && bun run dev:harness && bun run feeds:link-local && bun run feeds:refresh
-cd ../imtakt-router && bun run dev:local    # or: bash scripts/dev-api.sh (API only)
-bash scripts/smoke-local.sh
 export IMTAKT_SERVER_URL=http://localhost:3011
 ```
 
 ## Pull requests
 
 1. One concern per PR when possible (docs vs code).
-2. Keep public copy free of internal stack names (Meilisearch, MOTIS, etc.).
+2. Keep public copy free of internal stack or ops names.
 3. Match existing TypeScript style; run `bun run typecheck`.
 4. Update [docs/](./docs/) when changing MCP tools or SDK methods.
 
@@ -44,8 +39,8 @@ export IMTAKT_SERVER_URL=http://localhost:3011
 After `api.imtakt.dev` health is green:
 
 ```bash
-npm login   # npm org maintainer — @imtakt org publish rights
-bash scripts/npm-publish.sh          # runs pack:smoke + audit first
+npm login
+bash scripts/npm-publish.sh
 bash scripts/npm-publish.sh --dry-run   # optional rehearsal
 ```
 

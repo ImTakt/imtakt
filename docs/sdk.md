@@ -80,7 +80,7 @@ await imtakt.stationBoard(matches[0]!.id)
 
 ## Realtime fields
 
-When realtime is active, journey legs, board departures, and train stops include optional fields:
+When realtime is active (`capabilities.realtime.ok` on `/health`), journey legs, board departures, and train stops include optional fields:
 
 | Field | Meaning |
 | --- | --- |

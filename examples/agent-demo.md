@@ -1,4 +1,4 @@
-# External agent demo (KR2)
+# External agent demo
 
 Prove an outsider can plan a multimodal DE trip in ≤3 MCP calls.
 
