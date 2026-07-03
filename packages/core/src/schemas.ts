@@ -109,6 +109,8 @@ export const LegSchema = z.object({
   line: LineSchema,
   platform: z.string().optional(),
   cancelled: z.boolean(),
+  /** Stable train run id — use with imtakt_view_train. */
+  runId: z.string().optional(),
 })
 
 export type Leg = z.infer<typeof LegSchema>
@@ -124,7 +126,7 @@ export type Journey = z.infer<typeof JourneySchema>
 export const PlanJourneyRequestSchema = z.object({
   from: PlaceRefSchema,
   to: PlaceRefSchema,
-  when: z.string().datetime().optional(),
+  when: z.string().datetime(),
 })
 
 export type PlanJourneyRequest = z.infer<typeof PlanJourneyRequestSchema>
@@ -137,27 +139,6 @@ export const PlanJourneyResponseSchema = z.object({
 
 export type PlanJourneyResponse = z.infer<typeof PlanJourneyResponseSchema>
 
-export const TravelTimeRequestSchema = z.object({
-  from: PlaceRefSchema,
-  to: PlaceRefSchema,
-})
-
-export type TravelTimeRequest = z.infer<typeof TravelTimeRequestSchema>
-
-export const TravelTimeSchema = z.object({
-  durationMinutes: z.number().int().nonnegative(),
-  transfers: z.number().int().nonnegative(),
-})
-
-export type TravelTime = z.infer<typeof TravelTimeSchema>
-
-export const TravelTimeResponseSchema = z.object({
-  travelTime: TravelTimeSchema,
-  attribution: z.string().optional(),
-})
-
-export type TravelTimeResponse = z.infer<typeof TravelTimeResponseSchema>
-
 export const BoardDepartureSchema = z.object({
   line: LineSchema,
   direction: z.string(),
@@ -166,6 +147,8 @@ export const BoardDepartureSchema = z.object({
   platform: z.string().optional(),
   delayMinutes: z.number().int(),
   cancelled: z.boolean(),
+  /** Stable train run id — use with imtakt_view_train. */
+  runId: z.string().optional(),
 })
 
 export type BoardDeparture = z.infer<typeof BoardDepartureSchema>
@@ -177,6 +160,32 @@ export const StationBoardResponseSchema = z.object({
 })
 
 export type StationBoardResponse = z.infer<typeof StationBoardResponseSchema>
+
+export const TrainStopObservationSchema = z.object({
+  stop: StopSchema,
+  plannedArrival: z.string().datetime().optional(),
+  arrival: z.string().datetime().optional(),
+  plannedDeparture: z.string().datetime().optional(),
+  departure: z.string().datetime().optional(),
+  platform: z.string().optional(),
+  delayMinutes: z.number().int(),
+  cancelled: z.boolean(),
+})
+
+export type TrainStopObservation = z.infer<typeof TrainStopObservationSchema>
+
+export const ViewTrainResponseSchema = z.object({
+  runId: z.string(),
+  line: LineSchema,
+  direction: z.string(),
+  serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  stops: z.array(TrainStopObservationSchema),
+  currentDelayMinutes: z.number().int(),
+  cancelled: z.boolean(),
+  attribution: z.string().optional(),
+})
+
+export type ViewTrainResponse = z.infer<typeof ViewTrainResponseSchema>
 
 export const GTFS_ATTRIBUTION =
   "Schedule data © gtfs.de contributors (CC BY 4.0). Realtime data where shown © gtfs.de (CC BY-SA 4.0)."
