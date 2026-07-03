@@ -5,6 +5,7 @@ import { createImTakt } from "@imtakt/sdk"
 import { resolveBaseUrl } from "@imtakt/core"
 import { readPackageVersion } from "./version.js"
 import { registerImTaktTools } from "./register-tools.js"
+import { registerImTaktPrompts } from "./register-prompts.js"
 
 const VERSION = readPackageVersion()
 
@@ -21,8 +22,9 @@ Usage:
   npx -y @imtakt/mcp          Start stdio MCP server (default)
   imtakt-mcp --version        Print version
 
-Tools: imtakt_find_station, imtakt_plan_journey, imtakt_view_station, imtakt_view_train
-API:   https://api.imtakt.dev (override with IMTAKT_SERVER_URL)
+Tools:   imtakt_find_station, imtakt_plan_journey, imtakt_view_station, imtakt_view_train
+Prompts: plan_trip, next_departures, round_trip, follow_train
+API:     https://api.imtakt.dev (override with IMTAKT_SERVER_URL)
 
 Docs: https://github.com/ImTakt/imtakt/blob/main/docs/mcp.md
 `)
@@ -40,6 +42,7 @@ async function main(): Promise<void> {
   })
 
   registerImTaktTools(server, client)
+  registerImTaktPrompts(server)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
