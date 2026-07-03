@@ -28,8 +28,8 @@ No API key. No env vars for hosted adoption.
 
 ## Docs
 
-- [MCP guide](../docs/mcp.md)
-- [Getting started](../docs/getting-started.md)
+- [MCP guide](https://github.com/ImTakt/imtakt/blob/main/docs/mcp.md)
+- [Getting started](https://github.com/ImTakt/imtakt/blob/main/docs/getting-started.md)
 
 ## License
 

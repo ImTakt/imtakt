@@ -1,19 +1,38 @@
 {
   "name": "@imtakt/mcp",
   "version": "0.1.0",
+  "description": "MCP server — four tools for German transit intelligence (resolve, plan, board, train run)",
+  "license": "MIT",
+  "homepage": "https://imtakt.dev/mcp",
+  "keywords": ["mcp", "model-context-protocol", "gtfs", "transit", "germany", "imtakt", "cursor", "claude"],
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "bin": {
-    "imtakt-mcp": "./src/main.ts"
+    "imtakt-mcp": "./dist/main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ImTakt/imtakt.git",
+    "directory": "mcp"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "dev": "bun run src/main.ts",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "workspace:*",
-    "@imtakt/sdk": "workspace:*",
+    "@imtakt/core": "^0.1.0",
+    "@imtakt/sdk": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "zod": "^3.24.2"
   },

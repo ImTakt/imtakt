@@ -1,9 +1,33 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
 import { createImTakt } from "@imtakt/sdk"
-import { IMTAKT_HOSTED_API_URL } from "@imtakt/core"
+import { resolveBaseUrl } from "@imtakt/core"
+import { readPackageVersion } from "./version.js"
+
+const VERSION = readPackageVersion()
+
+const args = process.argv.slice(2)
+if (args.includes("--version") || args.includes("-V")) {
+  console.log(`@imtakt/mcp ${VERSION}`)
+  process.exit(0)
+}
+
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(`@imtakt/mcp ${VERSION} — MCP server for German transit intelligence
+
+Usage:
+  npx -y @imtakt/mcp          Start stdio MCP server (default)
+  imtakt-mcp --version        Print version
+
+Tools: imtakt_find_station, imtakt_plan_journey, imtakt_view_station, imtakt_view_train
+API:   https://api.imtakt.dev (override with IMTAKT_SERVER_URL)
+
+Docs: https://github.com/ImTakt/imtakt/blob/main/docs/mcp.md
+`)
+  process.exit(0)
+}
 
 const PlaceRefSchema = z.union([
   z.string().min(1),
@@ -13,11 +37,11 @@ const PlaceRefSchema = z.union([
 
 const server = new McpServer({
   name: "imtakt",
-  version: "0.1.0",
+  version: VERSION,
 })
 
 const imtakt = createImTakt({
-  baseUrl: process.env.IMTAKT_SERVER_URL ?? IMTAKT_HOSTED_API_URL,
+  baseUrl: resolveBaseUrl(undefined, process.env.IMTAKT_SERVER_URL),
 })
 
 server.tool(
