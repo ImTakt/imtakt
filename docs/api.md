@@ -1,6 +1,6 @@
 # HTTP API reference
 
-> **Adoption path is MCP + CLI** — use those first. This reference is for integrators.
+> **Adoption path is agent harness, MCP, or CLI.** Use those first. This reference is for integrators.
 
 **Base URL:** `https://api.imtakt.dev`  
 **OpenAPI:** `GET /v1/openapi.json`  

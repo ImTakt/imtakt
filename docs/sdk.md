@@ -1,6 +1,6 @@
 # SDK
 
-> **Adoption path is MCP + CLI** — no SDK required. This doc is for app integrators. See [later.md](./later.md).
+> **Adoption path is agent harness, MCP, or CLI.** This doc is for app integrators. See [integrators.md](./integrators.md).
 
 `@imtakt/sdk` is a thin TypeScript client over **ImTakt Server** `/v1`.
 
