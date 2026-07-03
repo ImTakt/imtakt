@@ -1,10 +1,11 @@
 # Getting started
 
-**Two paths. No login. No API key.**
+**Three paths. No login. No API key.**
 
-| Path | Command | Best for |
+| Path | Where | Best for |
 | --- | --- | --- |
-| **MCP** | `npx -y @imtakt/mcp` | Cursor, Claude, Windsurf |
+| **Agent harness** | [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) | Claude Code, Cursor, Codex |
+| **MCP** | `npx -y @imtakt/mcp` | Any MCP client |
 | **CLI** | `npx @imtakt/cli journey "A" "B"` | Terminal, scripts |
 
 ## 1. Check the API
@@ -13,7 +14,19 @@
 curl -s https://api.imtakt.dev/health
 ```
 
-## 2a. MCP — paste and go
+## 2a. Agent harness — skill + MCP in one flow
+
+Open [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding), pick your platform, copy the install command, connect MCP.
+
+Or fetch the skill directly:
+
+```
+https://imtakt.dev/agent-onboarding/SKILL.md
+```
+
+Full guide: [agent-onboarding.md](./agent-onboarding.md)
+
+## 2b. MCP — paste and go
 
 ```json
 {
@@ -32,7 +45,7 @@ Restart your MCP client. Ask:
 
 Full guide: [mcp.md](./mcp.md)
 
-## 2b. CLI — one line
+## 2c. CLI — one line
 
 ```bash
 npx @imtakt/cli journey "Berlin Hbf" "München Hbf"
@@ -46,4 +59,4 @@ Add `--json` for scripts. Full guide: [cli.md](./cli.md)
 
 ---
 
-**Not needed now:** SDK install, API keys, agent onboarding URLs, self-host. Those ship later → [later.md](./later.md).
+**Integrators:** SDK, raw HTTP, self-host → [integrators.md](./integrators.md). API keys and billing ship after public launch.

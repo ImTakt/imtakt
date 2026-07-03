@@ -1,19 +1,19 @@
 # Documentation
 
-**Adoption = MCP + CLI.** No login on the hosted path.
+**Adoption = agent harness, MCP, or CLI.** No login on the hosted path.
 
 | Guide | Status |
 | --- | --- |
 | [getting-started.md](./getting-started.md) | **Start here** |
-| [mcp.md](./mcp.md) | **MCP** — Cursor, Claude, Windsurf |
+| [agent-onboarding.md](./agent-onboarding.md) | **Agent harness** — Claude, Cursor, Codex, Windsurf |
+| [mcp.md](./mcp.md) | **MCP** — config and tools |
 | [cli.md](./cli.md) | **CLI** — terminal |
-| [later.md](./later.md) | SDK, HTTP, self-host *(deferred)* |
+| [integrators.md](./integrators.md) | SDK, HTTP, self-host |
 
-Hosted API: [api.imtakt.dev](https://api.imtakt.dev) · Playground: [imtakt.dev/try](https://imtakt.dev/try) · Agent harness: [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
+Hosted API: [api.imtakt.dev](https://api.imtakt.dev) · Playground: [imtakt.dev/try](https://imtakt.dev/try) · Harness: [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
 
-Reference copies (integrators, not adoption):
+Reference copies (integrators, not primary adoption):
 
 - [sdk.md](./sdk.md)
 - [api.md](./api.md)
-
-Canonical agent skill: [imtakt.dev/agent-onboarding/SKILL.md](https://imtakt.dev/agent-onboarding/SKILL.md). Repo copy: [SKILL.md](./SKILL.md).
+- [SKILL.md](./SKILL.md) — repo snapshot; canonical skill at [imtakt.dev/agent-onboarding/SKILL.md](https://imtakt.dev/agent-onboarding/SKILL.md)
