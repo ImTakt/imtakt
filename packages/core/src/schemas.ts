@@ -195,5 +195,15 @@ export const ViewTrainResponseSchema = z.object({
 
 export type ViewTrainResponse = z.infer<typeof ViewTrainResponseSchema>
 
-export const GTFS_ATTRIBUTION =
-  "Schedule data © gtfs.de contributors (CC BY 4.0). Realtime data where shown © gtfs.de (CC BY-SA 4.0)."
+export const GTFS_SCHEDULE_ATTRIBUTION =
+  "Schedule data © gtfs.de contributors (CC BY 4.0)."
+
+export const GTFS_RT_ATTRIBUTION_SUFFIX =
+  "Realtime data where shown © gtfs.de (CC BY-SA 4.0)."
+
+export const GTFS_ATTRIBUTION = `${GTFS_SCHEDULE_ATTRIBUTION} ${GTFS_RT_ATTRIBUTION_SUFFIX}`
+
+/** Schedule-only vs full attribution when realtime fields are present in the response. */
+export function attributionForResponse(hasRealtime: boolean): string {
+  return hasRealtime ? GTFS_ATTRIBUTION : GTFS_SCHEDULE_ATTRIBUTION
+}

@@ -3,4 +3,5 @@ dist/
 .env
 *.zip
 *.tsbuildinfo
+package-lock.json
 data/

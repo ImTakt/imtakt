@@ -100,9 +100,12 @@ def main() -> int:
     stops_ok = health.get("capabilities", {}).get("stops", {}).get("ok")
     journeys_ok = health.get("capabilities", {}).get("journeys", {}).get("ok")
     board_ok = health.get("capabilities", {}).get("board", {}).get("ok")
+    realtime_ok = health.get("capabilities", {}).get("realtime", {}).get("ok")
     indexed = health.get("capabilities", {}).get("stops", {}).get("indexed")
     health_status = "PASS" if http == 200 and stops_ok else "FAIL"
-    if http == 200 and stops_ok and not journeys_ok:
+    if http == 200 and stops_ok and (not journeys_ok or not board_ok):
+        health_status = "WARN"
+    if http == 200 and stops_ok and journeys_ok and board_ok and not realtime_ok:
         health_status = "WARN"
     add(
         Result(
@@ -112,11 +115,15 @@ def main() -> int:
             status=health_status,
             http=http,
             elapsed_ms=ms,
-            detail=f"ok={health.get('ok')} stops={stops_ok} journeys={journeys_ok} board={board_ok} indexed={indexed}",
+            detail=f"ok={health.get('ok')} stops={stops_ok} journeys={journeys_ok} board={board_ok} realtime={realtime_ok} indexed={indexed}",
             notes=(
                 ["journeys.ok false — journeys capability unavailable"]
                 if http == 200 and not journeys_ok
-                else []
+                else (
+                    ["realtime.ok false — realtime capability unavailable"]
+                    if http == 200 and stops_ok and not realtime_ok
+                    else []
+                )
             ),
         )
     )
@@ -171,9 +178,14 @@ def main() -> int:
             f"/v1/stops/{urllib.parse.quote(find_name['matches'][0]['id'])}/board",
         )
         dep_count = len(board.get("departures", []))
-        board_status = "PASS" if http_b == 200 else "FAIL"
+        first_dep = board.get("departures", [{}])[0] if dep_count else {}
+        has_rt = any(d.get("realTime") for d in board.get("departures", []))
+        board_status = "PASS" if http_b == 200 and dep_count > 0 else ("WARN" if http_b == 200 else "FAIL")
+        board_notes: list[str] = []
         if http_b == 200 and dep_count == 0:
-            board_status = "WARN"
+            board_notes.append("0 departures — board may be empty for this stop or time")
+        elif http_b == 200 and dep_count > 0 and not has_rt:
+            board_notes.append("No realTime on departures — realtime not active")
         add(
             Result(
                 name="Station board",
@@ -182,12 +194,11 @@ def main() -> int:
                 status=board_status,
                 http=http_b,
                 elapsed_ms=ms_b,
-                detail=f"stop={board.get('stop',{}).get('name')} departures={dep_count}",
-                notes=(
-                    ["0 departures — deploy board time fix on imtakt-router"]
-                    if http_b == 200 and dep_count == 0
-                    else []
+                detail=(
+                    f"stop={board.get('stop',{}).get('name')} departures={dep_count} "
+                    f"plannedTime={bool(first_dep.get('plannedTime'))} realTime={has_rt}"
                 ),
+                notes=board_notes,
             )
         )
         stop_id = find_name["matches"][0]["id"]

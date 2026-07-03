@@ -76,7 +76,24 @@ const { matches } = await imtakt.findStops({ place: "Köln Hbf", limit: 1 })
 await imtakt.stationBoard(matches[0]!.id)
 ```
 
-→ `GET /v1/stops/:id/board`
+→ `GET /v1/stops/:id/board` (optional `?when=` ISO datetime)
+
+## Realtime fields
+
+When realtime is active, journey legs, board departures, and train stops include optional fields:
+
+| Field | Meaning |
+| --- | --- |
+| `plannedTime` / `plannedDeparture` | GTFS scheduled time |
+| `departure` / `predictedTime` | RT-adjusted time when it differs |
+| `delayMinutes` | Minutes between actual and scheduled |
+| `platform` | Live platform |
+| `scheduledPlatform` | Planned platform |
+| `realTime` | `true` when RT data was applied |
+| `tripCancelled` | Board only — whole trip cancelled |
+| `runId` | Stable train view key |
+
+Check `GET /health` → `capabilities.realtime.ok` or `GET /v1` → `realtime.ok` before relying on live data.
 
 ## Types
 
