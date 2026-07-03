@@ -108,7 +108,9 @@ export const LegSchema = z.object({
   delayMinutes: z.number().int(),
   line: LineSchema,
   platform: z.string().optional(),
+  scheduledPlatform: z.string().optional(),
   cancelled: z.boolean(),
+  realTime: z.boolean().optional(),
   /** Stable train run id — use with imtakt_view_train. */
   runId: z.string().optional(),
 })
@@ -145,8 +147,11 @@ export const BoardDepartureSchema = z.object({
   plannedTime: z.string().datetime(),
   predictedTime: z.string().datetime().optional(),
   platform: z.string().optional(),
+  scheduledPlatform: z.string().optional(),
   delayMinutes: z.number().int(),
   cancelled: z.boolean(),
+  tripCancelled: z.boolean().optional(),
+  realTime: z.boolean().optional(),
   /** Stable train run id — use with imtakt_view_train. */
   runId: z.string().optional(),
 })
@@ -168,8 +173,10 @@ export const TrainStopObservationSchema = z.object({
   plannedDeparture: z.string().datetime().optional(),
   departure: z.string().datetime().optional(),
   platform: z.string().optional(),
+  scheduledPlatform: z.string().optional(),
   delayMinutes: z.number().int(),
   cancelled: z.boolean(),
+  realTime: z.boolean().optional(),
 })
 
 export type TrainStopObservation = z.infer<typeof TrainStopObservationSchema>
@@ -182,6 +189,7 @@ export const ViewTrainResponseSchema = z.object({
   stops: z.array(TrainStopObservationSchema),
   currentDelayMinutes: z.number().int(),
   cancelled: z.boolean(),
+  realTime: z.boolean().optional(),
   attribution: z.string().optional(),
 })
 
