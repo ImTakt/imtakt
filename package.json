@@ -7,7 +7,12 @@
   ],
   "scripts": {
     "typecheck": "bun run --filter './packages/*' typecheck && bun run --filter './mcp' typecheck",
-    "build": "bun run --filter './packages/*' build"
+    "build": "bun run --filter @imtakt/core build && bun run --filter @imtakt/sdk build && bun run --filter @imtakt/cli build && bun run --filter @imtakt/mcp build",
+    "test": "bun run --filter @imtakt/core test",
+    "pack:smoke": "bash scripts/npm-pack-smoke.sh",
+    "interface:test": "python3 scripts/interface-test.py",
+    "launch:verify": "bash scripts/launch-verify.sh",
+    "audit:packages": "npm audit --workspaces --audit-level=high"
   },
   "devDependencies": {
     "@types/bun": "latest",
