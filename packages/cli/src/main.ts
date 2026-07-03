@@ -1,12 +1,46 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { createImTakt } from "@imtakt/sdk"
-import { IMTAKT_HOSTED_API_URL } from "@imtakt/core"
+import { resolveBaseUrl } from "@imtakt/core"
+import { readPackageVersion } from "./version.js"
+
+const VERSION = readPackageVersion()
+const HELP = `imtakt — German transit intelligence CLI
+
+Usage:
+  imtakt journey <from> <to> [--at <iso>] [--json] [--server URL]
+  imtakt board <station> [--json] [--server URL]
+  imtakt train <runId> [--json] [--server URL]
+  imtakt station <query> [--json] [--server URL]
+
+Options:
+  --json          Structured JSON output
+  --server URL    API base (default: https://api.imtakt.dev)
+  --at <iso>      Departure time for journey (ISO 8601)
+
+Environment:
+  IMTAKT_SERVER_URL   Override API base
+
+Docs: https://github.com/ImTakt/imtakt/blob/main/docs/cli.md
+`
 
 const args = process.argv.slice(2)
+
+if (args.includes("--version") || args.includes("-V")) {
+  console.log(`@imtakt/cli ${VERSION}`)
+  process.exit(0)
+}
+
+if (args.includes("--help") || args.includes("-h") || args.length === 0) {
+  console.log(HELP)
+  process.exit(args.length === 0 ? 1 : 0)
+}
+
 const json = args.includes("--json")
 const serverFlag = args.indexOf("--server")
-const baseUrl =
-  serverFlag >= 0 ? args[serverFlag + 1] : process.env.IMTAKT_SERVER_URL ?? IMTAKT_HOSTED_API_URL
+const baseUrl = resolveBaseUrl(
+  serverFlag >= 0 ? args[serverFlag + 1] : undefined,
+  process.env.IMTAKT_SERVER_URL,
+)
 
 const imtakt = createImTakt({ baseUrl })
 

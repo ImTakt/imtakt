@@ -1,19 +1,38 @@
 {
   "name": "@imtakt/cli",
   "version": "0.1.0",
+  "description": "CLI for German transit intelligence via ImTakt Server",
+  "license": "MIT",
+  "homepage": "https://imtakt.dev/cli",
+  "keywords": ["gtfs", "transit", "germany", "imtakt", "cli", "bahn"],
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "bin": {
-    "imtakt": "./src/main.ts"
+    "imtakt": "./dist/main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ImTakt/imtakt.git",
+    "directory": "packages/cli"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "bun run src/main.ts",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "workspace:*",
-    "@imtakt/sdk": "workspace:*"
+    "@imtakt/core": "^0.1.0",
+    "@imtakt/sdk": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
