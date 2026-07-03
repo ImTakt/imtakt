@@ -9,19 +9,6 @@
         "typescript": "^5.8.3",
       },
     },
-    "apps/api": {
-      "name": "@imtakt/api",
-      "version": "0.0.0",
-      "dependencies": {
-        "@imtakt/core": "workspace:*",
-        "hono": "^4.7.4",
-        "postgres": "^3.4.5",
-        "zod": "^3.24.2",
-      },
-      "devDependencies": {
-        "typescript": "^5.8.3",
-      },
-    },
     "mcp": {
       "name": "@imtakt/mcp",
       "version": "0.1.0",
@@ -66,7 +53,8 @@
       "name": "@imtakt/sdk",
       "version": "0.1.0",
       "dependencies": {
-        "@imtakt/core": "workspace:*",
+        "@imtakt/core": "^0.1.0",
+        "zod": "^3.24.2",
       },
       "devDependencies": {
         "typescript": "^5.8.3",
@@ -75,8 +63,6 @@
   },
   "packages": {
     "@hono/node-server": ["@hono/node-server@1.19.14", "", { "peerDependencies": { "hono": "^4" } }, "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw=="],
-
-    "@imtakt/api": ["@imtakt/api@workspace:apps/api"],
 
     "@imtakt/cli": ["@imtakt/cli@workspace:packages/cli"],
 
@@ -221,8 +207,6 @@
     "path-to-regexp": ["path-to-regexp@8.4.2", "", {}, "sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA=="],
 
     "pkce-challenge": ["pkce-challenge@5.0.1", "", {}, "sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ=="],
-
-    "postgres": ["postgres@3.4.9", "", {}, "sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw=="],
 
     "proxy-addr": ["proxy-addr@2.0.7", "", { "dependencies": { "forwarded": "0.2.0", "ipaddr.js": "1.9.1" } }, "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg=="],
 

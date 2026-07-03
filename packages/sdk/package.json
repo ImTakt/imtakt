@@ -6,6 +6,7 @@
   "homepage": "https://imtakt.dev/mcp",
   "keywords": ["gtfs", "transit", "germany", "imtakt", "api-client"],
   "type": "module",
+  "sideEffects": false,
   "engines": {
     "node": ">=18"
   },
@@ -32,10 +33,12 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.build.json",
+    "test": "bun test src/",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "^0.1.0"
+    "@imtakt/core": "^0.1.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
