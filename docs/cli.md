@@ -5,9 +5,7 @@ Terminal access to the same hosted API as MCP — **no login, no API key**.
 ## Install
 
 ```bash
-npm install -g @imtakt/cli
-# or run once
-npx @imtakt/cli --help
+npx -y @imtakt/cli --help
 ```
 
 ## Commands

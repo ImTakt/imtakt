@@ -17,7 +17,9 @@ Thanks for helping improve the **adoption surface** (MCP, SDK, CLI) and docs.
 ```bash
 git clone https://github.com/ImTakt/imtakt.git
 cd imtakt && bun install
-bun run typecheck
+bun run build
+bun run test
+bun run pack:smoke   # simulates npx install path vs api.imtakt.dev
 ```
 
 Local API (full stack):
@@ -42,9 +44,14 @@ export IMTAKT_SERVER_URL=http://localhost:3011
 After `api.imtakt.dev` health is green:
 
 ```bash
-npm login
-bash scripts/npm-publish.sh
+npm login   # npm org maintainer — @imtakt org publish rights
+bash scripts/npm-publish.sh          # runs pack:smoke + audit first
+bash scripts/npm-publish.sh --dry-run   # optional rehearsal
 ```
+
+Packages publish in order: `@imtakt/core` → `@imtakt/sdk` → `@imtakt/cli` → `@imtakt/mcp`.
+
+**Security:** clients ship no secrets; `IMTAKT_SERVER_URL` is validated (no credentials, blocked metadata hosts). See `packages/core/src/resolve-base-url.ts`.
 
 ## Questions
 
