@@ -275,9 +275,9 @@ def main() -> int:
     print()
     print("INTERFACE MAP (client → API → MCP tool)")
     print("-" * 60)
-    print("imtakt_find_station  → POST /v1/stops/find     → CLI: imtakt station")
+    print("imtakt_find_station  → POST /v1/stops/find     → CLI: imtakt find")
     print("imtakt_plan_journey  → POST /v1/journeys/plan  → CLI: imtakt journey")
-    print("imtakt_view_station  → GET  /v1/stops/:id/board → CLI: imtakt board")
+    print("imtakt_station_live  → GET  /v1/stations/:id/live → CLI: imtakt live --stop-id")
     print("imtakt_view_train    → GET  /v1/trains/:runId  → CLI: imtakt train")
 
     return 0 if failed == 0 else 1

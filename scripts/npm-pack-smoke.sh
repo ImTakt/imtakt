@@ -44,16 +44,21 @@ echo "==> Installing packed tarballs (simulates npx dependency tree)"
 CLI_BIN="$INSTALL_DIR/node_modules/.bin/imtakt"
 MCP_BIN="$INSTALL_DIR/node_modules/.bin/imtakt-mcp"
 
-echo "==> CLI smoke: station lookup"
-"$CLI_BIN" station "Alexanderplatz" --json | head -c 200
+echo "==> CLI smoke: find"
+"$CLI_BIN" find "Alexanderplatz" | head -c 200
 echo ""
 
 echo "==> CLI smoke: journey plan"
-"$CLI_BIN" journey "Berlin Hbf" "München Hbf" --json | head -c 300
+"$CLI_BIN" journey "Berlin Hbf" "München Hbf" | head -c 300
 echo ""
 
-echo "==> CLI smoke: board"
-"$CLI_BIN" board "Berlin Hbf" --json | head -c 200
+echo "==> CLI smoke: live"
+STOP_ID="$("$CLI_BIN" find "Berlin Hbf" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const j=JSON.parse(d);process.stdout.write(j.matches[0]?.id||'')})")"
+if [[ -z "$STOP_ID" ]]; then
+  echo "FAIL: no stop id from find" >&2
+  exit 1
+fi
+"$CLI_BIN" live --stop-id "$STOP_ID" --limit 4 | head -c 200
 echo ""
 
 echo "==> CLI smoke: --version"
@@ -81,7 +86,7 @@ assert_cli_rejects_url() {
   local url="$1"
   local pattern="$2"
   local out
-  out="$(IMTAKT_SERVER_URL="$url" "$CLI_BIN" station "Berlin" 2>&1)" || true
+  out="$(IMTAKT_SERVER_URL="$url" "$CLI_BIN" find "Berlin" 2>&1)" || true
   if echo "$out" | grep -q "$pattern"; then
     echo "Blocked OK: $url"
   else

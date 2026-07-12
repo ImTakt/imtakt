@@ -47,5 +47,5 @@ if ! $DRY_RUN; then
   echo ""
   echo "Published. Verify:"
   echo "  npx -y @imtakt/mcp"
-  echo "  npx -y @imtakt/cli station Alexanderplatz"
+  echo "  npx -y @imtakt/cli find Alexanderplatz"
 fi
