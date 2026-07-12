@@ -2,36 +2,58 @@
 import { createImTakt } from "@imtakt/sdk"
 import { resolveBaseUrl } from "@imtakt/core"
 import { readPackageVersion } from "./version.js"
-import { formatHuman } from "./format.js"
 
 const VERSION = readPackageVersion()
-const HELP = `imtakt — German transit intelligence CLI
+const HELP = `imtakt — agent CLI for ImTakt Server (JSON stdout)
 
-Usage:
-  imtakt journey <from> <to> [--at <iso>] [--json] [--server URL]
-  imtakt live <station> [--limit N] [--json] [--server URL]
-  imtakt track <runId> [--watch <sec>] [--json] [--server URL]
-  imtakt board <station> [--json] [--server URL]
-  imtakt train <runId> [--json] [--server URL]
-  imtakt station <query> [--json] [--server URL]
+Commands:
+  find <query> [--limit N]
+  journey <from> <to> [--at <iso>]
+  live --stop-id <id> [--limit N] [--when <iso>]
+  train <runId>
 
 Options:
-  --json          Structured JSON output
-  --server URL    API base (default: https://api.imtakt.dev)
-  --at <iso>      Departure time for journey (ISO 8601)
-  --limit <n>     Departures for live (default 16, max 30)
-  --watch <sec>   Poll train track every N seconds until complete
+  --server URL     API base (default: https://api.imtakt.dev)
+  --at <iso>       Journey departure (ISO 8601 UTC; default: now)
+  --when <iso>     Live board reference time (ISO 8601 UTC)
+  --limit <n>      find: match count (default 8). live: departures (default 16, max 30)
+  --stop-id <id>   Required for live
 
 Environment:
-  IMTAKT_SERVER_URL   Override API base
+  IMTAKT_SERVER_URL
 
+Stdout: JSON. Stderr on error: {"error":"..."}
 Docs: https://github.com/ImTakt/imtakt/blob/main/docs/cli.md
 `
 
 const args = process.argv.slice(2)
 
+function fail(message: string): never {
+  console.error(JSON.stringify({ error: message }))
+  process.exit(1)
+}
+
+function out(data: unknown) {
+  console.log(JSON.stringify(data))
+}
+
+function flagValue(name: string): string | undefined {
+  const idx = args.indexOf(name)
+  if (idx < 0) return undefined
+  return args[idx + 1]
+}
+
+function parseLimit(defaultValue: number, max?: number): number {
+  const raw = flagValue("--limit")
+  if (raw === undefined) return defaultValue
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 1) fail(`Invalid --limit: ${raw}`)
+  if (max != null && n > max) return max
+  return Math.floor(n)
+}
+
 if (args.includes("--version") || args.includes("-V")) {
-  console.log(`@imtakt/cli ${VERSION}`)
+  console.log(JSON.stringify({ name: "@imtakt/cli", version: VERSION }))
   process.exit(0)
 }
 
@@ -40,7 +62,6 @@ if (args.includes("--help") || args.includes("-h") || args.length === 0) {
   process.exit(args.length === 0 ? 1 : 0)
 }
 
-const json = args.includes("--json")
 const serverFlag = args.indexOf("--server")
 const baseUrl = resolveBaseUrl(
   serverFlag >= 0 ? args[serverFlag + 1] : undefined,
@@ -49,97 +70,52 @@ const baseUrl = resolveBaseUrl(
 
 const imtakt = createImTakt({ baseUrl })
 
-function out(data: unknown) {
-  console.log(json ? JSON.stringify(data, null, 2) : formatHuman(data))
-}
-
-function parseLimit(): number | undefined {
-  const idx = args.indexOf("--limit")
-  if (idx < 0) return undefined
-  const n = Number(args[idx + 1])
-  return Number.isFinite(n) ? n : undefined
-}
-
-function parseWatchSec(): number {
-  const idx = args.indexOf("--watch")
-  if (idx < 0) return 0
-  const n = Number(args[idx + 1] ?? "30")
-  return Number.isFinite(n) && n > 0 ? n : 30
-}
-
-async function resolveStationId(station: string): Promise<string> {
-  const found = await imtakt.findStops({ place: station, limit: 1 })
-  if (!found.matches[0]) throw new Error(`Station not found: ${station}`)
-  return found.matches[0].id
-}
-
-async function trackTrain(runId: string, watchSec: number) {
-  const done = new Set(["completed", "cancelled"])
-  for (;;) {
-    const data = await imtakt.viewTrain(runId)
-    if (!json) {
-      console.clear?.()
-      out(data)
-    } else {
-      out(data)
-    }
-    if (!watchSec || done.has(data.progress.status)) return
-    await new Promise((r) => setTimeout(r, watchSec * 1000))
-  }
-}
-
 async function main() {
   const cmd = args[0]
   if (!cmd || cmd.startsWith("-")) {
-    console.error(`Usage: imtakt <journey|live|track|board|train|station> ...`)
-    process.exit(1)
+    fail("Usage: imtakt <find|journey|live|train> ...")
   }
 
-  if (cmd === "journey" || cmd === "plan") {
-    const from = args[1]
-    const to = args[2]
-    if (!from || !to) throw new Error("Usage: imtakt journey <from> <to> [--at <when>]")
-    const atIdx = args.indexOf("--at")
-    const when = atIdx >= 0 ? args[atIdx + 1] : new Date().toISOString()
-    out(await imtakt.planJourney({ from, to, when }))
-    return
+  switch (cmd) {
+    case "find": {
+      const query = args[1]
+      if (!query || query.startsWith("-")) fail("Usage: imtakt find <query> [--limit N]")
+      out(await imtakt.findStops({ place: query, limit: parseLimit(8) }))
+      return
+    }
+    case "journey": {
+      const from = args[1]
+      const to = args[2]
+      if (!from || !to || from.startsWith("-") || to.startsWith("-")) {
+        fail("Usage: imtakt journey <from> <to> [--at <iso>]")
+      }
+      const when = flagValue("--at") ?? new Date().toISOString()
+      out(await imtakt.planJourney({ from, to, when }))
+      return
+    }
+    case "live": {
+      const stopId = flagValue("--stop-id")
+      if (!stopId) fail("Usage: imtakt live --stop-id <id> [--limit N] [--when <iso>]")
+      const when = flagValue("--when")
+      out(
+        await imtakt.stationLive(stopId, {
+          limit: parseLimit(16, 30),
+          ...(when ? { when } : {}),
+        }),
+      )
+      return
+    }
+    case "train": {
+      const runId = args[1]
+      if (!runId || runId.startsWith("-")) fail("Usage: imtakt train <runId>")
+      out(await imtakt.viewTrain(runId))
+      return
+    }
+    default:
+      fail(`Unknown command: ${cmd}`)
   }
-
-  if (cmd === "live") {
-    const station = args[1]
-    if (!station) throw new Error("Usage: imtakt live <station> [--limit N]")
-    const stopId = await resolveStationId(station)
-    out(await imtakt.stationLive(stopId, { limit: parseLimit() }))
-    return
-  }
-
-  if (cmd === "track" || cmd === "train") {
-    const runId = args[1]
-    if (!runId) throw new Error("Usage: imtakt track <runId> [--watch <sec>]")
-    const watchSec = cmd === "track" ? parseWatchSec() : 0
-    await trackTrain(runId, watchSec)
-    return
-  }
-
-  if (cmd === "board" || cmd === "view") {
-    const station = args[1]
-    if (!station) throw new Error("Usage: imtakt board <station>")
-    const stopId = await resolveStationId(station)
-    out(await imtakt.stationLive(stopId, { limit: 8 }))
-    return
-  }
-
-  if (cmd === "station" || cmd === "find") {
-    const query = args[1]
-    if (!query) throw new Error("Usage: imtakt station <query>")
-    out(await imtakt.findStops({ place: query }))
-    return
-  }
-
-  throw new Error(`Unknown command: ${cmd}`)
 }
 
 main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err)
-  process.exit(1)
+  fail(err instanceof Error ? err.message : String(err))
 })
