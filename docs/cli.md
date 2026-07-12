@@ -1,6 +1,8 @@
 # CLI
 
-Terminal access to the same hosted API as MCP — **no login, no API key**.
+Agent shell access to ImTakt Server — **JSON on stdout**, no login, no API key.
+
+Prefer [`@imtakt/mcp`](./mcp.md) in MCP clients. Use the CLI when an agent runs shell commands.
 
 ## Install
 
@@ -8,48 +10,41 @@ Terminal access to the same hosted API as MCP — **no login, no API key**.
 npx -y @imtakt/cli --help
 ```
 
+## Output contract
+
+| Stream | Format |
+| --- | --- |
+| **stdout** | JSON on success |
+| **stderr** | `{"error":"message"}` on failure |
+
 ## Commands
 
 | Command | Description |
 | --- | --- |
+| `imtakt find <query>` | Resolve stops by name |
 | `imtakt journey <from> <to>` | Plan a journey |
-| `imtakt live <station>` | Full station live board (metadata + departures + `asOf`) |
-| `imtakt track <runId>` | Live train progress through all stops |
-| `imtakt board <station>` | Departure board (8 departures; alias of `live --limit 8`) |
-| `imtakt train <runId>` | One-shot train view (alias of `track`) |
-| `imtakt station <query>` | Find stops by name |
-
-Aliases: `plan` for journey, `view` for board, `find` for station.
+| `imtakt live --stop-id <id>` | Station departures + `realtime.asOf` |
+| `imtakt train <runId>` | Train run detail |
 
 ## Flags
 
-| Flag | Description |
-| --- | --- |
-| `--json` | Structured JSON output |
-| `--server <url>` | Override API base (default: hosted) |
-| `--at <iso>` | Departure time for journey (ISO 8601; defaults to now) |
-| `--limit <n>` | Departures for `live` (default 16, max 30) |
-| `--watch <sec>` | Poll `track` every N seconds until the run completes |
+| Flag | Used by | Description |
+| --- | --- | --- |
+| `--server <url>` | all | Override API base |
+| `--at <iso>` | journey | Departure time (UTC; default: now) |
+| `--when <iso>` | live | Board reference time (UTC) |
+| `--limit <n>` | find, live | find: matches (default 8). live: departures (default 16, max 30) |
+| `--stop-id <id>` | live | Required stop id from `find` |
 
-Environment: `IMTAKT_SERVER_URL` overrides the default API base.
+Environment: `IMTAKT_SERVER_URL`.
 
-## Examples
+## Workflow
 
 ```bash
-# Human-readable journey (shows runIds for rail legs)
-imtakt journey "Berlin Hbf" "München Hbf"
-
-# Full live station board
-imtakt live "Köln Hbf" --limit 20
-
-# Track a train from a board runId
-imtakt track "imtakt_run_v1:…" --watch 30
-
-# JSON for scripts
-imtakt live "Berlin Hbf" --json
-
-# Local API
-IMTAKT_SERVER_URL=http://localhost:3011 imtakt journey "Berlin Hbf" "München Hbf"
+imtakt find "Berlin Hbf"
+imtakt live --stop-id "de_297950" --limit 20
+imtakt journey "Berlin Hbf" "München Hbf" --at 2026-07-13T07:00:00Z
+imtakt train "imtakt_run_v1:…"
 ```
 
 ## Source
