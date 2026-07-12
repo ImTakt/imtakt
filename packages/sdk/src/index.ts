@@ -4,6 +4,7 @@ import {
   PlanJourneyRequestSchema,
   PlanJourneyResponseSchema,
   StationBoardResponseSchema,
+  StationLiveResponseSchema,
   ViewTrainResponseSchema,
   resolveBaseUrl,
   type FindStopsRequest,
@@ -11,13 +12,14 @@ import {
   type PlanJourneyRequest,
   type PlanJourneyResponse,
   type StationBoardResponse,
+  type StationLiveResponse,
   type ViewTrainResponse,
 } from "@imtakt/core"
 import type { z } from "zod"
 import { ImTaktApiError, ImTaktValidationError, readApiError } from "./errors.js"
 
 export type { FindStopsRequest, FindStopsResponse, PlanJourneyRequest, PlanJourneyResponse }
-export type { StationBoardResponse, ViewTrainResponse }
+export type { StationBoardResponse, StationLiveResponse, ViewTrainResponse }
 export { ImTaktApiError, ImTaktValidationError } from "./errors.js"
 export { resolveBaseUrl } from "@imtakt/core"
 
@@ -33,6 +35,10 @@ export type ImTaktClient = {
   findStops: (req: FindStopsRequest) => Promise<FindStopsResponse>
   planJourney: (req: PlanJourneyRequest) => Promise<PlanJourneyResponse>
   stationBoard: (stopId: string) => Promise<StationBoardResponse>
+  stationLive: (
+    stopId: string,
+    opts?: { when?: string; limit?: number },
+  ) => Promise<StationLiveResponse>
   viewTrain: (runId: string) => Promise<ViewTrainResponse>
 }
 
@@ -97,6 +103,14 @@ export function createImTakt(options: ImTaktClientOptions = {}): ImTaktClient {
       post("/v1/journeys/plan", PlanJourneyRequestSchema, PlanJourneyResponseSchema, req),
     stationBoard: (stopId) =>
       get(`/v1/stops/${encodeURIComponent(stopId)}/board`, StationBoardResponseSchema),
+    stationLive: (stopId, opts) => {
+      const params = new URLSearchParams()
+      if (opts?.when) params.set("when", opts.when)
+      if (opts?.limit != null) params.set("limit", String(opts.limit))
+      const qs = params.toString()
+      const path = `/v1/stations/${encodeURIComponent(stopId)}/live${qs ? `?${qs}` : ""}`
+      return get(path, StationLiveResponseSchema)
+    },
     viewTrain: (runId) =>
       get(`/v1/trains/${encodeURIComponent(runId)}`, ViewTrainResponseSchema),
   }

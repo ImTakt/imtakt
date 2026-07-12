@@ -166,6 +166,48 @@ export const StationBoardResponseSchema = z.object({
 
 export type StationBoardResponse = z.infer<typeof StationBoardResponseSchema>
 
+export const StationDetailSchema = StopSchema.extend({
+  shortCode: z.string().optional(),
+  modes: z.array(TransitModeSchema),
+})
+
+export type StationDetail = z.infer<typeof StationDetailSchema>
+
+export const RealtimeSnapshotSchema = z.object({
+  available: z.boolean(),
+  asOf: z.string().datetime(),
+})
+
+export type RealtimeSnapshot = z.infer<typeof RealtimeSnapshotSchema>
+
+export const StationLiveResponseSchema = z.object({
+  station: StationDetailSchema,
+  departures: z.array(BoardDepartureSchema),
+  realtime: RealtimeSnapshotSchema,
+  attribution: z.string().optional(),
+})
+
+export type StationLiveResponse = z.infer<typeof StationLiveResponseSchema>
+
+export const TrainProgressStatusSchema = z.enum([
+  "not_departed",
+  "in_transit",
+  "at_stop",
+  "completed",
+  "cancelled",
+])
+
+export type TrainProgressStatus = z.infer<typeof TrainProgressStatusSchema>
+
+export const TrainProgressSchema = z.object({
+  status: TrainProgressStatusSchema,
+  currentStopIndex: z.number().int().nullable(),
+  currentStop: StopSchema.optional(),
+  nextStop: StopSchema.optional(),
+})
+
+export type TrainProgress = z.infer<typeof TrainProgressSchema>
+
 export const TrainStopObservationSchema = z.object({
   stop: StopSchema,
   plannedArrival: z.string().datetime().optional(),
@@ -191,6 +233,8 @@ export const ViewTrainResponseSchema = z.object({
   cancelled: z.boolean(),
   realTime: z.boolean().optional(),
   attribution: z.string().optional(),
+  asOf: z.string().datetime(),
+  progress: TrainProgressSchema,
 })
 
 export type ViewTrainResponse = z.infer<typeof ViewTrainResponseSchema>

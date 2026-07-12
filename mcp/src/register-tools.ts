@@ -71,8 +71,26 @@ export function registerImTaktTools(server: McpServer, client: ImTaktClient): vo
   )
 
   server.tool(
+    "imtakt_station_live",
+    "Full live station view: metadata, departures (up to 30), and realtime asOf timestamp.",
+    {
+      station: PlaceRefSchema.describe("Station name, stop ID, or coordinates"),
+      limit: z.number().int().min(1).max(30).optional().describe("Departure count (default 16)"),
+    },
+    async ({ station, limit }) => {
+      try {
+        const stopId = await resolveStopId(client, station)
+        const result = await client.stationLive(stopId, { limit })
+        return toolJson(result)
+      } catch (err) {
+        return toolError(formatToolError(err))
+      }
+    },
+  )
+
+  server.tool(
     "imtakt_view_train",
-    "View live full stats for a train run by runId (from plan_journey legs or view_station departures).",
+    "View live full stats for a train run by runId. Includes progress (current/next stop) and asOf freshness.",
     {
       runId: z.string().min(1).describe("Stable train run id from a leg or board departure"),
     },
