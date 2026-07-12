@@ -1,5 +1,28 @@
 # Changelog — @imtakt/*
 
+## 0.2.0 — 2026-07-13
+
+**Agent CLI + live station adoption.**
+
+### @imtakt/core
+
+- `StationLiveResponse`, `TrainProgress`, extended `ViewTrainResponse` schemas
+
+### @imtakt/sdk
+
+- `stationLive(stopId, opts?)` client method
+
+### @imtakt/cli
+
+- **Breaking:** JSON-only stdout; four commands: `find`, `journey`, `live`, `train`
+- `live` requires `--stop-id` (from `find` output)
+- Removed: `board`, `view`, `track`, `station`, `plan`, `--json`, human tables
+
+### @imtakt/mcp
+
+- `imtakt_station_live` tool
+- `follow_train` prompt uses view wording (not track)
+
 ## 0.1.0 — 2026-07-07
 
 **Launch:** npm publish of adoption harness for German transit intelligence.
