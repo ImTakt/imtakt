@@ -1,6 +1,6 @@
 {
   "name": "@imtakt/mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server — four tools for German transit intelligence (resolve, plan, board, train run)",
   "license": "MIT",
   "homepage": "https://imtakt.dev/mcp",
@@ -33,8 +33,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "^0.1.0",
-    "@imtakt/sdk": "^0.1.0",
+    "@imtakt/core": "^0.2.0",
+    "@imtakt/sdk": "^0.2.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "zod": "^3.24.2"
   },
