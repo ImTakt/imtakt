@@ -11,7 +11,7 @@ Hosted at **[api.imtakt.dev](https://api.imtakt.dev)** · **No login · No API k
 
 - **Agent harness** — skill + MCP install for Claude Code, Cursor, Codex ([agent-onboarding](https://imtakt.dev/agent-onboarding))
 - **MCP-first** — paste one JSON block; four tools, zero config
-- **CLI** — `npx @imtakt/cli` for scripts and terminal workflows
+- **CLI** — `npx @imtakt/cli` for agent shell-outs (JSON stdout)
 - **No signup** — hosted API is free to use; no keys on the adoption path
 - **Full Germany** — ~675k stops, multimodal (rail, bus, tram, metro, ferry)
 - **Open source (MIT)** — clients in this repo
@@ -58,16 +58,16 @@ That's the full config. No `env`. No API key. Defaults to **`https://api.imtakt.
 
 ---
 
-## CLI (terminal)
+## CLI (agent shell-out)
 
 ```bash
-npx @imtakt/cli journey "Berlin Hbf" "München Hbf" --at 2026-07-03T09:00:00Z
-npx @imtakt/cli board "Köln Hbf"
-npx @imtakt/cli station "Frankfurt"
-npx @imtakt/cli train RUN_ID --json
+npx @imtakt/cli find "Berlin Hbf"
+npx @imtakt/cli live --stop-id "<id>"
+npx @imtakt/cli journey "Berlin Hbf" "München Hbf"
+npx @imtakt/cli train RUN_ID
 ```
 
-Same hosted API. No login.
+Four commands. JSON stdout.
 
 → [docs/cli.md](docs/cli.md) · [imtakt.dev/cli](https://imtakt.dev/cli)
 

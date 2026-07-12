@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | **Agent harness** | [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) | Claude Code, Cursor, Codex |
 | **MCP** | `npx -y @imtakt/mcp` | Any MCP client |
-| **CLI** | `npx @imtakt/cli journey "A" "B"` | Terminal, scripts |
+| **CLI** | `npx @imtakt/cli journey "A" "B"` | Agent shell-outs, scripts |
 
 ## 1. Check the API
 
@@ -51,7 +51,7 @@ Full guide: [mcp.md](./mcp.md)
 npx @imtakt/cli journey "Berlin Hbf" "München Hbf"
 ```
 
-Add `--json` for scripts. Full guide: [cli.md](./cli.md)
+Stdout is always JSON. Four commands: `find`, `journey`, `live`, `train`. Full guide: [cli.md](./cli.md)
 
 ## 3. Try in the browser
 
