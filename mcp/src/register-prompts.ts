@@ -120,7 +120,7 @@ Present outbound and return separately, then total time away including the stay.
 
   server.prompt(
     "follow_train",
-    "Track a specific train run live — stops, delays, platforms.",
+    "View a specific train run — stops, delays, platforms.",
     {
       runId: z.string().describe("runId from a journey leg or board departure"),
     },
@@ -130,7 +130,7 @@ Present outbound and return separately, then total time away including the stay.
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: `Track train run ${runId} live.
+            text: `View train run ${runId}.
 
 1. Get current system time (\`date -u\`) to compute "in N min" per stop.
 2. Call imtakt_view_train with the runId.
