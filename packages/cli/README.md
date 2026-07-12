@@ -1,11 +1,12 @@
 # @imtakt/cli
 
-Command-line interface for **ImTakt Server**.
+Agent CLI for **ImTakt Server** — JSON stdout, four commands.
 
 ```bash
+npx -y @imtakt/cli find "Berlin Hbf"
+npx -y @imtakt/cli live --stop-id "de_297950"
 npx -y @imtakt/cli journey "Berlin Hbf" "München Hbf"
-npx -y @imtakt/cli board "Köln Hbf" --json
-npx -y @imtakt/cli --help
+npx -y @imtakt/cli train RUN_ID
 ```
 
 ## Docs

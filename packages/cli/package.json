@@ -1,7 +1,7 @@
 {
   "name": "@imtakt/cli",
   "version": "0.1.0",
-  "description": "CLI for German transit intelligence via ImTakt Server",
+  "description": "Agent-oriented CLI for German transit via ImTakt Server (JSON stdout)",
   "license": "MIT",
   "homepage": "https://imtakt.dev/cli",
   "keywords": ["gtfs", "transit", "germany", "imtakt", "cli", "bahn"],
