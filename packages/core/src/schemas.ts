@@ -77,6 +77,8 @@ export const FindStopsRequestSchema = z
     lat: z.number().optional(),
     lng: z.number().optional(),
     limit: z.number().int().min(1).max(10).optional(),
+    /** station = dedupe to hubs (default); stop = platform-level hits */
+    granularity: z.enum(["station", "stop"]).optional(),
   })
   .refine(
     (v) => (v.place != null && v.place.length > 0) || (v.lat != null && v.lng != null),
