@@ -1,16 +1,23 @@
 # Agent onboarding
 
-> **Canonical harness (live UI + generated artifacts):** [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)  
-> **Source:** [imtakt-apps/site/lib/agent-skills.ts](https://github.com/ImTakt/imtakt-apps/blob/main/site/lib/agent-skills.ts) · URLs in [site/lib/site.ts](https://github.com/ImTakt/imtakt-apps/blob/main/site/lib/site.ts)
+> **Canonical harness:** [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
 
-Install the ImTakt skill and connect MCP in one flow. Works with Claude Code, Cursor, Codex, and Windsurf. No login, no API key.
+**CLI first** — editor setup (Skill + MCP) is optional.
 
 ## Quick start
 
-1. Open [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
-2. Pick your platform tab and copy the install command
-3. Paste the MCP block (or let the Codex plugin register it automatically)
-4. Test: *"Plane morgen um 09:00 eine Fahrt von Berlin Hbf nach München Hbf."*
+1. Install CLI: `curl -fsSL https://imtakt.dev/cli/install.sh | bash`
+2. Verify in terminal:
+   ```bash
+   imtakt --version
+   imtakt find "Berlin Hbf"
+   imtakt journey "Berlin Hbf" "München Hbf"
+   ```
+3. *(Optional)* Open [agent-onboarding](https://imtakt.dev/agent-onboarding) → Editor section for Cursor / Claude / Codex
+
+Browser GUI (shareable URLs): [imtakt.dev/try](https://imtakt.dev/try)
+
+## Quick start (legacy editor path)
 
 ## Machine-readable skill
 
