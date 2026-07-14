@@ -1,38 +1,28 @@
 # ImTakt
 
-**German transit for AI agents — harness, MCP, or CLI. One command, no account.**
+**Dein Agent versteht Bus und Bahn - im Takt.**
 
-Hosted at **[api.imtakt.dev](https://api.imtakt.dev)** · **No login · No API key · No Docker**  
-**Harness:** [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) · **Try:** [imtakt.dev/try](https://imtakt.dev/try)
+Verbindungen planen, Abfahrten prüfen, Haltestellen finden - deutschlandweit, mit echten Fahrplandaten. Kostenlos nutzbar, ohne Account.
 
----
-
-## Why ImTakt?
-
-- **Agent harness** — skill + MCP install for Claude Code, Cursor, Codex ([agent-onboarding](https://imtakt.dev/agent-onboarding))
-- **MCP-first** — paste one JSON block; four tools, zero config
-- **CLI** — `npx @imtakt/cli` for agent shell-outs (JSON stdout)
-- **No signup** — hosted API is free to use; no keys on the adoption path
-- **Full Germany** — ~675k stops, multimodal (rail, bus, tram, metro, ferry)
-- **Open source (MIT)** — clients in this repo
+**Loslegen:** [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) · **Ausprobieren:** [imtakt.dev/try](https://imtakt.dev/try)
 
 ---
 
-## Agent harness (recommended)
+## Was ImTakt macht
 
-[imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) — install skill, connect MCP, test a journey. Fetchable skill:
-
-```
-https://imtakt.dev/agent-onboarding/SKILL.md
-```
-
-→ [docs/agent-onboarding.md](docs/agent-onboarding.md)
+- **Für deinen Agenten** - funktioniert in Cursor, Claude, Codex und anderen MCP-fähigen Tools
+- **Ganz Deutschland** - Fernverkehr, Regionalbahn, S-Bahn, U-Bahn, Tram und Bus
+- **Echte Daten** - Fahrplan und Echtzeit, wo verfügbar
+- **Einfach starten** - eine Konfiguration einfügen, fertig
+- **Kein Login** - der gehostete Dienst ist ohne API-Schlüssel nutzbar
 
 ---
 
-## MCP (agents)
+## Agent verbinden (empfohlen)
 
-Add to **Cursor**, **Claude Desktop**, or **Windsurf**:
+1. Öffne [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
+2. Wähle deinen Editor (Cursor, Claude, Codex, …)
+3. Kopiere die MCP-Konfiguration:
 
 ```json
 {
@@ -45,35 +35,38 @@ Add to **Cursor**, **Claude Desktop**, or **Windsurf**:
 }
 ```
 
-That's the full config. No `env`. No API key. Defaults to **`https://api.imtakt.dev`**.
+4. Frag deinen Agenten z. B.: *„Wie komme ich morgen früh von Berlin Hbf nach München Hbf?“*
 
-| Tool | What it does |
+Skill-Datei für Agenten: `https://imtakt.dev/agent-onboarding/SKILL.md`
+
+→ [Anleitung](docs/agent-onboarding.md) · [imtakt.dev/mcp](https://imtakt.dev/mcp)
+
+---
+
+## Was dein Agent kann
+
+| Fähigkeit | Beispiel |
 | --- | --- |
-| `imtakt_find_station` | Resolve place or coordinates → stops |
-| `imtakt_plan_journey` | Plan A→B with legs and transfers |
-| `imtakt_view_station` | Departure board at a stop |
-| `imtakt_view_train` | Live full stats for a train run |
-
-→ [docs/mcp.md](docs/mcp.md) · [imtakt.dev/mcp](https://imtakt.dev/mcp)
+| Haltestelle finden | „Finde Stationen bei Alexanderplatz“ |
+| Verbindung planen | „ICE von Hamburg nach Köln, ab 9 Uhr“ |
+| Abfahrten anzeigen | „Nächste Züge ab Berlin Hbf“ |
+| Zug verfolgen | Verspätungen und Halte eines Zuglaufs |
 
 ---
 
-## CLI (agent shell-out)
+## Im Browser testen
 
-```bash
-npx @imtakt/cli find "Berlin Hbf"
-npx @imtakt/cli live --stop-id "<id>"
-npx @imtakt/cli journey "Berlin Hbf" "München Hbf"
-npx @imtakt/cli train RUN_ID
-```
-
-Four commands. JSON stdout.
-
-→ [docs/cli.md](docs/cli.md) · [imtakt.dev/cli](https://imtakt.dev/cli)
+Ohne Installation: [imtakt.dev/try](https://imtakt.dev/try)
 
 ---
 
-## Verify
+## Für Entwickler
+
+| Thema | Link |
+| --- | --- |
+| CLI | [docs/cli.md](docs/cli.md) · `npx @imtakt/cli` |
+| HTTP API | [docs/api.md](docs/api.md) |
+| SDK & Integration | [docs/integrators.md](docs/integrators.md) |
 
 ```bash
 curl -s https://api.imtakt.dev/health
@@ -81,56 +74,21 @@ curl -s https://api.imtakt.dev/health
 
 ---
 
-## Packages (adoption)
+## Pakete
 
-| Package | Install |
+| Paket | Install |
 | --- | --- |
 | [`@imtakt/mcp`](mcp/) | `npx -y @imtakt/mcp` |
 | [`@imtakt/cli`](packages/cli/) | `npx @imtakt/cli` |
 
-`@imtakt/sdk` and raw HTTP docs exist for integrators — see [docs/integrators.md](docs/integrators.md).
-
 ---
 
-## Local override (optional)
-
-```bash
-export IMTAKT_SERVER_URL=http://localhost:3011   # contributors / self-host only
-```
-
----
-
-## Repo layout
-
-```text
-imtakt/          MCP + CLI + core schemas  ← adoption
-imtakt-router/   ImTakt Server (hosted API)
-imtakt-gtfs/     Feeds and stop index
-imtakt-apps/     imtakt.dev
-```
-
-## CI
+## Mitentwickeln
 
 ```bash
 bun install && bun run typecheck && bun run build
 ```
 
-Workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml)
+→ [CONTRIBUTING.md](CONTRIBUTING.md) · [STATUS.md](STATUS.md)
 
----
-
-## Integrators
-
-- `@imtakt/sdk` for app embeds
-- Raw HTTP: [docs/api.md](docs/api.md)
-- Self-host: [docs/integrators.md](docs/integrators.md)
-
-API keys and billing ship after public launch.
-
----
-
-## Status
-
-[STATUS.md](STATUS.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
-
-**License:** MIT
+**Lizenz:** MIT
