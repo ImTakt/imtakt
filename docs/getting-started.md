@@ -1,62 +1,45 @@
 # Getting started
 
-**Three paths. No login. No API key.**
+**Dein Agent soll Bus und Bahn verstehen? So startest du.**
 
-| Path | Where | Best for |
+Kein Account. Kein API-Schlüssel.
+
+| Weg | Wo | Für wen |
 | --- | --- | --- |
-| **Agent harness** | [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) | Claude Code, Cursor, Codex |
-| **MCP** | `npx -y @imtakt/mcp` | Any MCP client |
-| **CLI** | `npx @imtakt/cli journey "A" "B"` | Agent shell-outs, scripts |
+| **Agent verbinden** | [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding) | Cursor, Claude, Codex |
+| **Im Browser testen** | [imtakt.dev/try](https://imtakt.dev/try) | Schnell ausprobieren, ohne Installation |
+| **CLI** | `npx @imtakt/cli` | Skripte und Terminal (optional) |
 
-## 1. Check the API
+## 1. Im Browser ausprobieren (optional)
 
-```bash
-curl -s https://api.imtakt.dev/health
-```
+Öffne [imtakt.dev/try](https://imtakt.dev/try), gib Start und Ziel ein, und sieh eine echte Verbindung.
 
-## 2a. Agent harness — skill + MCP in one flow
+## 2. Agent verbinden
 
-Open [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding), pick your platform, copy the install command, connect MCP.
+Öffne [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding), wähle deinen Editor, und kopiere die MCP-Konfiguration.
 
-Or fetch the skill directly:
+Oder direkt die Skill-Datei:
 
 ```
 https://imtakt.dev/agent-onboarding/SKILL.md
 ```
 
-Full guide: [agent-onboarding.md](./agent-onboarding.md)
+Vollständige Anleitung: [agent-onboarding.md](./agent-onboarding.md)
 
-## 2b. MCP — paste and go
+## 3. Erste Frage stellen
 
-```json
-{
-  "mcpServers": {
-    "imtakt": {
-      "command": "npx",
-      "args": ["-y", "@imtakt/mcp"]
-    }
-  }
-}
-```
+Beispiele:
 
-Restart your MCP client. Ask:
+- „Plane morgen um 9 Uhr von Berlin Hbf nach München Hbf.“
+- „Welche Züge fahren als Nächstes ab Köln Hbf?“
+- „Finde Haltestellen in der Nähe vom Brandenburger Tor.“
 
-> Plan Berlin Hbf → München Hbf tomorrow at 09:00 with imtakt_plan_journey.
+## Entwickler
 
-Full guide: [mcp.md](./mcp.md)
-
-## 2c. CLI — one line
+- MCP-Details: [mcp.md](./mcp.md)
+- CLI: [cli.md](./cli.md)
+- HTTP API: [api.md](./api.md)
 
 ```bash
-npx @imtakt/cli journey "Berlin Hbf" "München Hbf"
+curl -s https://api.imtakt.dev/health
 ```
-
-Stdout is always JSON. Four commands: `find`, `journey`, `live`, `train`. Full guide: [cli.md](./cli.md)
-
-## 3. Try in the browser
-
-[imtakt.dev/try](https://imtakt.dev/try) — playground against the same API (no account).
-
----
-
-**Integrators:** SDK, raw HTTP, self-host → [integrators.md](./integrators.md). API keys and billing ship after public launch.
