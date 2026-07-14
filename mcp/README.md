@@ -1,6 +1,6 @@
 # @imtakt/mcp
 
-MCP server for **German transit intelligence** — four tools over [api.imtakt.dev](https://api.imtakt.dev).
+MCP server for **German transit intelligence** — five tools over [api.imtakt.dev](https://api.imtakt.dev).
 
 ## Quick start
 
@@ -24,6 +24,7 @@ No API key. No env vars for hosted adoption.
 | `imtakt_find_station` | Resolve place or coordinates → stops |
 | `imtakt_plan_journey` | Plan A→B with legs |
 | `imtakt_view_station` | Departure board |
+| `imtakt_station_live` | Live board with realtime metadata |
 | `imtakt_view_train` | Live full train stats |
 
 ## Docs

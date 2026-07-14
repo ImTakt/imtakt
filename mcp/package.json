@@ -1,7 +1,7 @@
 {
   "name": "@imtakt/mcp",
   "version": "0.2.0",
-  "description": "MCP server — four tools for German transit intelligence (resolve, plan, board, train run)",
+  "description": "MCP server — five tools for German transit intelligence (resolve, plan, board, live, train run)",
   "license": "MIT",
   "homepage": "https://imtakt.dev/mcp",
   "keywords": ["mcp", "model-context-protocol", "gtfs", "transit", "germany", "imtakt", "cursor", "claude"],
