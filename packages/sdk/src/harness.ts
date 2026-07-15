@@ -225,23 +225,18 @@ export function createAgentHarness(
     const prefs = { ...defaults, ...args.preferences }
     const warnings: string[] = []
 
-    let fromResolved: ResolvedPlace | undefined
-    let toResolved: ResolvedPlace | undefined
-
-    if (!isStopIdRef(args.from)) {
-      fromResolved = await resolvePlace(args.from, {
-        minConfidence: prefs.minSnapConfidence ?? SNAP_FAIL_THRESHOLD,
-        field: "from",
-      })
-      if (fromResolved.warning) warnings.push(fromResolved.warning)
-    }
-    if (!isStopIdRef(args.to)) {
-      toResolved = await resolvePlace(args.to, {
-        minConfidence: prefs.minSnapConfidence ?? SNAP_FAIL_THRESHOLD,
-        field: "to",
-      })
-      if (toResolved.warning) warnings.push(toResolved.warning)
-    }
+    // Parallel resolve — consulting multi-OD work is dominated by place lookup RTT.
+    const minConfidence = prefs.minSnapConfidence ?? SNAP_FAIL_THRESHOLD
+    const [fromResolved, toResolved] = await Promise.all([
+      isStopIdRef(args.from)
+        ? Promise.resolve(undefined)
+        : resolvePlace(args.from, { minConfidence, field: "from" }),
+      isStopIdRef(args.to)
+        ? Promise.resolve(undefined)
+        : resolvePlace(args.to, { minConfidence, field: "to" }),
+    ])
+    if (fromResolved?.warning) warnings.push(fromResolved.warning)
+    if (toResolved?.warning) warnings.push(toResolved.warning)
 
     const when = args.when ?? new Date().toISOString()
     const apiPrefs = toApiPreferences(prefs)
