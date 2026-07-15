@@ -1,6 +1,6 @@
 {
   "name": "@imtakt/cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Agent-oriented CLI for German transit via ImTakt Server (JSON stdout)",
   "license": "MIT",
   "homepage": "https://imtakt.dev/cli",
@@ -11,6 +11,7 @@
   },
   "files": [
     "dist",
+    "analytics",
     "README.md"
   ],
   "bin": {
@@ -31,8 +32,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "^0.2.0",
-    "@imtakt/sdk": "^0.2.0"
+    "@imtakt/core": "^0.3.0",
+    "@imtakt/sdk": "^0.3.0"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
