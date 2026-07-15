@@ -60,6 +60,9 @@ export const JourneyEndpointSnapSchema = z.object({
   requested: PlaceRefSchema,
   snappedStop: StopSchema,
   walkMeters: z.number().int().nonnegative().optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  matchType: MatchTypeSchema.optional(),
+  alternatives: z.array(StopMatchSchema).optional(),
 })
 
 export type JourneyEndpointSnap = z.infer<typeof JourneyEndpointSnapSchema>
@@ -77,6 +80,7 @@ export const FindStopsRequestSchema = z
     lat: z.number().optional(),
     lng: z.number().optional(),
     limit: z.number().int().min(1).max(10).optional(),
+    modes: z.array(TransitModeSchema).optional(),
     /** station = dedupe to hubs (default); stop = platform-level hits */
     granularity: z.enum(["station", "stop"]).optional(),
   })
@@ -110,8 +114,10 @@ export const LegSchema = z.object({
   delayMinutes: z.number().int(),
   line: LineSchema,
   platform: z.string().optional(),
+  /** Scheduled platform before realtime updates (Gl. from GTFS). */
   scheduledPlatform: z.string().optional(),
   cancelled: z.boolean(),
+  /** True when MOTIS applied GTFS-RT for this leg. */
   realTime: z.boolean().optional(),
   /** Stable train run id — use with imtakt_view_train. */
   runId: z.string().optional(),
@@ -127,18 +133,43 @@ export const JourneySchema = z.object({
 
 export type Journey = z.infer<typeof JourneySchema>
 
+export const LineClassSchema = z.enum(["long_distance"])
+
+export const JourneyPreferencesSchema = z.object({
+  excludeLineClasses: z.array(LineClassSchema).optional(),
+  maxTransfers: z.number().int().min(0).max(10).optional(),
+  maxResults: z.number().int().min(1).max(10).optional(),
+})
+
+export type JourneyPreferences = z.infer<typeof JourneyPreferencesSchema>
+
+export const RealtimeSnapshotSchema = z.object({
+  available: z.boolean(),
+  asOf: z.string().datetime(),
+})
+
+export type RealtimeSnapshot = z.infer<typeof RealtimeSnapshotSchema>
+
 export const PlanJourneyRequestSchema = z.object({
   from: PlaceRefSchema,
   to: PlaceRefSchema,
   when: z.string().datetime(),
+  preferences: JourneyPreferencesSchema.optional(),
 })
 
 export type PlanJourneyRequest = z.infer<typeof PlanJourneyRequestSchema>
 
+export const PreferencesAppliedSchema = z.object({
+  excludeLineClasses: z.boolean().optional(),
+  maxTransfers: z.number().optional(),
+})
+
 export const PlanJourneyResponseSchema = z.object({
   journeys: z.array(JourneySchema),
   meta: PlanJourneyMetaSchema.optional(),
+  realtime: RealtimeSnapshotSchema.optional(),
   attribution: z.string().optional(),
+  preferencesApplied: PreferencesAppliedSchema.optional(),
 })
 
 export type PlanJourneyResponse = z.infer<typeof PlanJourneyResponseSchema>
@@ -152,6 +183,7 @@ export const BoardDepartureSchema = z.object({
   scheduledPlatform: z.string().optional(),
   delayMinutes: z.number().int(),
   cancelled: z.boolean(),
+  /** Whole trip cancelled (not just this stop). */
   tripCancelled: z.boolean().optional(),
   realTime: z.boolean().optional(),
   /** Stable train run id — use with imtakt_view_train. */
@@ -174,13 +206,6 @@ export const StationDetailSchema = StopSchema.extend({
 })
 
 export type StationDetail = z.infer<typeof StationDetailSchema>
-
-export const RealtimeSnapshotSchema = z.object({
-  available: z.boolean(),
-  asOf: z.string().datetime(),
-})
-
-export type RealtimeSnapshot = z.infer<typeof RealtimeSnapshotSchema>
 
 export const StationLiveResponseSchema = z.object({
   station: StationDetailSchema,
