@@ -26,6 +26,8 @@ https://imtakt.dev/agent-onboarding/SKILL.md
 
 Vollständige Anleitung: [agent-onboarding.md](./agent-onboarding.md)
 
+Technische Integration: [agent-harness.md](./agent-harness.md) · [agent-patterns.md](./agent-patterns.md)
+
 ## 3. Erste Frage stellen
 
 Beispiele:
