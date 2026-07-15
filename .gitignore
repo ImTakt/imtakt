@@ -7,3 +7,6 @@ package-lock.json
 data/
 private/
 *.pem
+
+__pycache__/
+*.py[cod]
