@@ -1,16 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
-import {
-  FindStopsRequestSchema,
-  PlaceRefSchema,
-} from "@imtakt/core"
-import type { ImTaktClient } from "@imtakt/sdk"
-import { formatToolError, toolError, toolJson } from "./format.js"
-import { resolveStopId } from "./resolve-station.js"
+import { FindStopsRequestSchema, PlaceRefSchema } from "@imtakt/core"
+import type { AgentHarness } from "@imtakt/sdk"
+import { ImTaktAmbiguousPlaceError } from "@imtakt/sdk"
+import { formatToolError, toolError, toolJson, toolJsonFromFormat } from "./format.js"
 
-const FindStationInputSchema = FindStopsRequestSchema
-
-export function registerImTaktTools(server: McpServer, client: ImTaktClient): void {
+export function registerImTaktTools(server: McpServer, harness: AgentHarness): void {
   server.tool(
     "imtakt_find_station",
     "Resolve a German transit stop by place name or coordinates.",
@@ -18,12 +13,14 @@ export function registerImTaktTools(server: McpServer, client: ImTaktClient): vo
       place: z.string().min(1).optional().describe("Place or station name"),
       lat: z.number().optional().describe("Latitude (requires lng)"),
       lng: z.number().optional().describe("Longitude (requires lat)"),
+      limit: z.number().int().min(1).max(10).optional().describe("Max matches (default 8)"),
+      granularity: z.enum(["station", "stop"]).optional().describe("station or stop level"),
     },
     async (input) => {
       try {
-        const req = FindStationInputSchema.parse(input)
-        const result = await client.findStops(req)
-        return toolJson(result)
+        const req = FindStopsRequestSchema.parse(input)
+        const result = await harness.client.findStops(req)
+        return toolJsonFromFormat(harness.format(result, "find"))
       } catch (err) {
         return toolError(formatToolError(err))
       }
@@ -32,22 +29,55 @@ export function registerImTaktTools(server: McpServer, client: ImTaktClient): vo
 
   server.tool(
     "imtakt_plan_journey",
-    "Plan a multimodal journey in Germany between two places (name, coordinates, or stop ID). Returns up to 3 options with legs, transfers, realtime delays, and runIds. Ground `when` in the current system clock (e.g. `date -u`) — never guess today's date.",
+    "Plan a multimodal journey in Germany. Returns up to 3 options with legs, delays, runIds, and snap metadata.",
     {
       from: PlaceRefSchema.describe("Origin — place string, {lat,lng}, or {stopId}"),
       to: PlaceRefSchema.describe("Destination — place string, {lat,lng}, or {stopId}"),
       when: z
         .string()
         .datetime()
-        .describe(
-          "ISO 8601 UTC departure time. Compute from the CURRENT system clock (`date -u +%Y-%m-%dT%H:%M:%SZ`); convert Europe/Berlin local intents to UTC.",
-        ),
+        .describe("ISO 8601 UTC departure — ground in system clock"),
+      excludeLongDistance: z
+        .boolean()
+        .optional()
+        .describe("Regio only — exclude ICE/IC/EC"),
+      presentation: z
+        .enum(["json", "markdown", "both"])
+        .optional()
+        .describe("json default; markdown adds human-readable block"),
     },
-    async ({ from, to, when }) => {
+    async ({ from, to, when, excludeLongDistance, presentation }) => {
       try {
-        const result = await client.planJourney({ from, to, when })
-        return toolJson(result)
+        const result = await harness.planTrip({
+          from,
+          to,
+          when,
+          preferences: { excludeLongDistance: excludeLongDistance ?? false },
+        })
+        const mode = presentation ?? "json"
+        const formatted = harness.format(result, "journey", {
+          labels: result.labels,
+          warnings: result.warnings,
+          verbosity: mode === "json" ? "compact" : "full",
+        })
+        if (mode === "json") return toolJsonFromFormat(formatted)
+        if (mode === "markdown") {
+          return {
+            content: [{ type: "text" as const, text: formatted.markdown ?? "" }],
+          }
+        }
+        return {
+          content: [
+            { type: "text" as const, text: formatted.json ?? "" },
+            { type: "text" as const, text: formatted.markdown ?? "" },
+          ],
+        }
       } catch (err) {
+        if (err instanceof ImTaktAmbiguousPlaceError) {
+          return toolError(
+            `${err.message}\nCandidates:\n${err.candidates.map((c) => `- ${c.name} (${c.id})`).join("\n")}`,
+          )
+        }
         return toolError(formatToolError(err))
       }
     },
@@ -55,16 +85,19 @@ export function registerImTaktTools(server: McpServer, client: ImTaktClient): vo
 
   server.tool(
     "imtakt_view_station",
-    "View upcoming departures at a German transit stop.",
+    "View upcoming departures at a stop (schedule board). Prefer imtakt_station_live for realtime asOf.",
     {
       station: PlaceRefSchema.describe("Station name, stop ID, or coordinates"),
     },
     async ({ station }) => {
       try {
-        const stopId = await resolveStopId(client, station)
-        const result = await client.stationBoard(stopId)
+        const resolved = await harness.resolvePlace(station)
+        const result = await harness.client.stationBoard(resolved.stopId)
         return toolJson(result)
       } catch (err) {
+        if (err instanceof ImTaktAmbiguousPlaceError) {
+          return toolError(err.message)
+        }
         return toolError(formatToolError(err))
       }
     },
@@ -72,17 +105,25 @@ export function registerImTaktTools(server: McpServer, client: ImTaktClient): vo
 
   server.tool(
     "imtakt_station_live",
-    "Full live station view: metadata, departures (up to 30), and realtime asOf timestamp.",
+    "Full live station view: metadata, departures, and realtime asOf timestamp.",
     {
       station: PlaceRefSchema.describe("Station name, stop ID, or coordinates"),
       limit: z.number().int().min(1).max(30).optional().describe("Departure count (default 16)"),
+      presentation: z.enum(["json", "markdown"]).optional(),
     },
-    async ({ station, limit }) => {
+    async ({ station, limit, presentation }) => {
       try {
-        const stopId = await resolveStopId(client, station)
-        const result = await client.stationLive(stopId, { limit })
-        return toolJson(result)
+        const result = await harness.stationStatus(station, { limit })
+        if (presentation === "markdown") {
+          const md = harness.format(result, "live", { verbosity: "full" }).markdown
+          return { content: [{ type: "text" as const, text: md ?? "" }] }
+        }
+        const compact = harness.format(result, "live")
+        return toolJsonFromFormat(compact)
       } catch (err) {
+        if (err instanceof ImTaktAmbiguousPlaceError) {
+          return toolError(err.message)
+        }
         return toolError(formatToolError(err))
       }
     },
@@ -90,13 +131,18 @@ export function registerImTaktTools(server: McpServer, client: ImTaktClient): vo
 
   server.tool(
     "imtakt_view_train",
-    "View live full stats for a train run by runId. Includes progress (current/next stop) and asOf freshness.",
+    "Track a train run by runId from journey or board output.",
     {
-      runId: z.string().min(1).describe("Stable train run id from a leg or board departure"),
+      runId: z.string().min(1).describe("Stable run id from plan or board"),
+      presentation: z.enum(["json", "markdown"]).optional(),
     },
-    async ({ runId }) => {
+    async ({ runId, presentation }) => {
       try {
-        const result = await client.viewTrain(runId)
+        const result = await harness.client.viewTrain(runId)
+        if (presentation === "markdown") {
+          const md = harness.format(result, "train").markdown
+          return { content: [{ type: "text" as const, text: md ?? "" }] }
+        }
         return toolJson(result)
       } catch (err) {
         return toolError(formatToolError(err))

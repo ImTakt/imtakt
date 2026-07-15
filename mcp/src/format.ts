@@ -6,6 +6,19 @@ export function toolJson(data: unknown) {
   }
 }
 
+/** Prefer `payload` from harness.format() to avoid redundant JSON round-trips. */
+export function toolJsonFromFormat(out: { payload?: unknown; json?: string }) {
+  if (out.payload !== undefined) return toolJson(out.payload)
+  if (out.json) {
+    try {
+      return toolJson(JSON.parse(out.json))
+    } catch {
+      return { content: [{ type: "text" as const, text: out.json }] }
+    }
+  }
+  return toolJson({})
+}
+
 export function toolError(message: string) {
   return {
     content: [{ type: "text" as const, text: message }],

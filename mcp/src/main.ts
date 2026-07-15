@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { createImTakt } from "@imtakt/sdk"
+import { createImTakt, createAgentHarness } from "@imtakt/sdk"
 import { resolveBaseUrl } from "@imtakt/core"
 import { readPackageVersion } from "./version.js"
 import { registerImTaktTools } from "./register-tools.js"
@@ -40,8 +40,9 @@ async function main(): Promise<void> {
   const client = createImTakt({
     baseUrl: resolveBaseUrl(undefined, process.env.IMTAKT_SERVER_URL),
   })
+  const harness = createAgentHarness(client)
 
-  registerImTaktTools(server, client)
+  registerImTaktTools(server, harness)
   registerImTaktPrompts(server)
 
   const transport = new StdioServerTransport()
