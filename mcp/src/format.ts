@@ -19,6 +19,20 @@ export function toolJsonFromFormat(out: { payload?: unknown; json?: string }) {
   return toolJson({})
 }
 
+/**
+ * One channel per call — JSON default (agents); markdown on request.
+ * Avoid returning both (token cost); pick with `presentation`.
+ */
+export function toolFromFormat(
+  out: { payload?: unknown; json: string; markdown: string },
+  presentation: "json" | "markdown" = "json",
+) {
+  if (presentation === "markdown") {
+    return { content: [{ type: "text" as const, text: out.markdown }] }
+  }
+  return toolJsonFromFormat(out)
+}
+
 export function toolError(message: string) {
   return {
     content: [{ type: "text" as const, text: message }],

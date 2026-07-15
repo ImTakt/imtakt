@@ -1,6 +1,6 @@
 # Agent patterns
 
-Recipes using the **agent harness** (`@imtakt/sdk`) or **CLI** (same logic). Prefer harness facets for decisions; Python only for multi-search / day-of transforms.
+Recipes using the **agent harness** (`@imtakt/sdk`) or **CLI** (same logic). Prefer harness facets + `intelligence` for decisions; Python only for multi-search / day-of transforms. Foundation: [agent-intelligence.md](./agent-intelligence.md).
 
 ## 1. Resolve before journey
 
@@ -27,27 +27,36 @@ await harness.planTrip({ from: "A", to: "B", preferences: { excludeLongDistance:
 ## 3. Compare all options (no Python)
 
 ```typescript
-const trip = await harness.planTrip({ from: "Berlin Hbf", to: "München Hbf" })
-const { journeys } = harness.format(trip, "journey", {
-  labels: trip.labels,
-  warnings: trip.warnings,
+const planned = await harness.planTrip({ from: "Berlin Hbf", to: "München Hbf" })
+const { trip, journeys, intelligence } = harness.format(planned, "journey", {
+  labels: planned.labels,
+  warnings: planned.warnings,
 }).payload as {
+  trip: { from: { name: string }; to: { name: string }; realtime: "live" | "schedule" }
   journeys: Array<{
     option: number
-    tags?: string[]
-    durationMinutes: number
-    totalDelayMinutes: number
+    headline: string
+    departLocal: string
+    arriveLocal: string
+    changesText: string
+    products: string[]
     riskLevel: "low" | "medium" | "high"
-    transferGaps: { at: string; minutes: number }[]
-    lines: string[]
+    riskScore: number
+    riskSignals: string[]
   }>
+  intelligence: {
+    decisionBoundary: "agent"
+    riskModel: { id: string; inputsUnavailable: string[] }
+    comparison: { fastest?: number; lowRisk: number[] }
+  }
 }
-// Agent policy (yours): e.g. prefer low risk, then tags.includes("fastest")
+// Present like DB: trip header + each headline; you pick using risk/tags/prefs
 ```
 
 ```bash
 imtakt journey "Berlin Hbf" "München Hbf" --format json 2>/dev/null \
-  | jq '.journeys[] | {option, tags, durationMinutes, totalDelayMinutes, riskLevel}'
+  | jq '{ trip, compare: .intelligence.comparison,
+          options: [.journeys[] | {option, headline, riskLevel, riskScore}] }'
 ```
 
 ## 4. Multi time-window compare
@@ -80,7 +89,7 @@ imtakt train "$RUN_ID" --format json 2>/dev/null \
 ```
 
 ```typescript
-const train = await harness.client.viewTrain(runId)
+const train = await harness.viewTrain(runId) // train.agent = compact envelope
 harness.format(train, "train").payload
 ```
 

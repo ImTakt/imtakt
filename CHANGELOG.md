@@ -1,5 +1,34 @@
 # Changelog — @imtakt/*
 
+## 0.3.1 — 2026-07-15
+
+**Harness product = `trip.agent` envelope; CLI Spec output; honest risk.**
+
+### @imtakt/core
+
+- `imtakt.agent.plan/v1` envelope (`schema`, `domain: transit`)
+- DB-Navigator card fields: `headline`, local times, `products`, Umstieg labels
+- `imtakt.connection_slack.v1` risk model (`riskScore`, `riskSignals`, inputsUnavailable)
+- `intelligence` contract — no auto-pick; no vaporware layers on the wire
+
+### @imtakt/sdk
+
+- **`planTrip` → `trip.agent`** (compact envelope; `format()` reuses it)
+- **`realtime` always normalized** when API omits the snapshot
+- **`viewTrain` on harness** (+ `agent` compact train)
+- `maxResults` applied client-side; parallel place resolve
+
+### @imtakt/cli
+
+- CLI Spec: TTY → markdown, pipe → JSON; `--json` / `-o` / `IMTAKT_FORMAT`
+- Removed `--format both` (one channel per call)
+- Exit codes: `0` ok · `1` usage · `2` api · `3` ambiguous (+ `candidates`)
+- Structured errors on stderr: `{"error","code",…}`
+
+### @imtakt/mcp
+
+- `presentation: json|markdown` (default json); uses harness `viewTrain`
+
 ## 0.3.0 — 2026-07-14
 
 **Agent harness — shared SDK workflows, context-aware CLI output.**
@@ -27,7 +56,7 @@
 
 ### @imtakt/cli
 
-- TTY → markdown, piped → compact agent JSON (`--format json|md|both`)
+- TTY → markdown, piped → compact agent JSON (`--format json|md`)
 - `--verbose` for full API JSON + inline warnings
 - `--regio` / `--no-ice`, `--from-id` / `--to-id`, `--confirm-snap`
 - `live` accepts place name or `--stop-id`

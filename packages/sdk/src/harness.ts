@@ -5,8 +5,10 @@ import {
   compactTrain,
   dedupeWarnings,
   filterJourneys,
+  formatCompactPlanMarkdown,
   formatMarkdown,
   formatSnapWarning,
+  PLAN_SCHEMA,
   hasDistantAlternatives,
   isAmbiguous,
   isAmbiguousPlaceErrorBody,
@@ -18,12 +20,18 @@ import {
   snapWarningMessage,
   SNAP_FAIL_THRESHOLD,
   SCHEDULE_ONLY_WARNING,
+  type CompactPlanTrip,
+  type CompactTrain,
   type FormatKind,
   type FormatVerbosity,
+  type Journey,
   type JourneyPreferences,
   type PlaceRef,
+  type PlanIntelligence,
   type PlanJourneyResponse,
+  type PresentationMode,
   type RankedJourney,
+  type RealtimeSnapshot,
   type Stop,
   type StopMatch,
   type StationLiveResponse,
@@ -57,7 +65,15 @@ export type PlanTripResolvedSnap = {
   confidence: number
 }
 
+/**
+ * Full plan result for agents.
+ *
+ * Prefer `agent` (compact envelope) for decisions and tool I/O.
+ * Raw `journeys` / API fields remain for drill-down and `--verbose`.
+ */
 export type PlanTripResult = PlanJourneyResponse & {
+  /** Always set — synthesized from legs when the API omits the snapshot. */
+  realtime: RealtimeSnapshot
   labels: RankedJourney[]
   warnings: string[]
   preferencesApplied: TripPreferences & { serverFiltered: boolean }
@@ -65,15 +81,25 @@ export type PlanTripResult = PlanJourneyResponse & {
     from?: PlanTripResolvedSnap
     to?: PlanTripResolvedSnap
   }
+  /**
+   * Decision contract — never picks a winner (`decisionBoundary: "agent"`).
+   * Same object as `agent.intelligence`.
+   */
+  intelligence: PlanIntelligence
+  /**
+   * Compact agent envelope (`imtakt.agent.plan/v1`) — JSON primary for agents.
+   * Same object returned by `format(result, "journey").payload`.
+   */
+  agent: CompactPlanTrip
 }
 
 export type FormatOutput = {
-  /** Compact or full JSON string for stdout / piping. */
-  json?: string
-  /** Parsed payload when verbosity is compact — avoids parse/stringify round-trips. */
+  json: string
+  /** Parsed compact payload when verbosity is compact. */
   payload?: unknown
-  markdown?: string
+  markdown: string
   stderr?: string
+  presentation: PresentationMode
 }
 
 export type HarnessFormatOptions = {
@@ -81,6 +107,8 @@ export type HarnessFormatOptions = {
   labels?: RankedJourney[]
   warnings?: string[]
   verbosity?: FormatVerbosity
+  /** Default `"json"` — agent/machine primary. */
+  presentation?: PresentationMode
   includeRunIds?: boolean
 }
 
@@ -123,8 +151,48 @@ function snapFromResolved(r: ResolvedPlace): PlanTripResolvedSnap {
   }
 }
 
+function journeysHaveRealtime(journeys: Journey[]): boolean {
+  return journeys.some((j) => j.legs.some((leg) => leg.realTime === true))
+}
+
+/**
+ * Ensure every plan has an honest realtime snapshot.
+ * When the API omits `realtime`, derive availability from per-leg `realTime`.
+ */
+export function normalizeRealtime(
+  fromApi: RealtimeSnapshot | undefined,
+  journeys: Journey[],
+  asOfFallback: string,
+): RealtimeSnapshot {
+  if (fromApi) {
+    return {
+      available: fromApi.available === true || journeysHaveRealtime(journeys),
+      asOf: fromApi.asOf,
+    }
+  }
+  const fromLegs = journeysHaveRealtime(journeys)
+  return {
+    available: fromLegs,
+    asOf: asOfFallback,
+  }
+}
+
+function isPlanTripResult(data: unknown): data is PlanTripResult {
+  return (
+    typeof data === "object" &&
+    data != null &&
+    "agent" in data &&
+    "intelligence" in data &&
+    "journeys" in data &&
+    (data as PlanTripResult).agent?.schema === PLAN_SCHEMA
+  )
+}
+
 export type AgentHarness = {
-  resolvePlace: (ref: PlaceRef, opts?: { minConfidence?: number; field?: "from" | "to" }) => Promise<ResolvedPlace>
+  resolvePlace: (
+    ref: PlaceRef,
+    opts?: { minConfidence?: number; field?: "from" | "to" },
+  ) => Promise<ResolvedPlace>
   planTrip: (args: {
     from: PlaceRef
     to: PlaceRef
@@ -135,6 +203,8 @@ export type AgentHarness = {
     ref: PlaceRef,
     opts?: { limit?: number; when?: string },
   ) => Promise<StationLiveResponse & { resolved: ResolvedPlace }>
+  /** Train drill-down — same compact path as `format(..., "train")`. */
+  viewTrain: (runId: string) => Promise<ViewTrainResponse & { agent: CompactTrain }>
   format: (data: unknown, kind: FormatKind, opts?: HarnessFormatOptions) => FormatOutput
   client: ImTaktClient
 }
@@ -225,7 +295,6 @@ export function createAgentHarness(
     const prefs = { ...defaults, ...args.preferences }
     const warnings: string[] = []
 
-    // Parallel resolve — consulting multi-OD work is dominated by place lookup RTT.
     const minConfidence = prefs.minSnapConfidence ?? SNAP_FAIL_THRESHOLD
     const [fromResolved, toResolved] = await Promise.all([
       isStopIdRef(args.from)
@@ -266,6 +335,9 @@ export function createAgentHarness(
     if (prefs.maxTransfers != null) {
       journeys = filterJourneys(journeys, { maxTransfers: prefs.maxTransfers })
     }
+    if (prefs.maxResults != null && journeys.length > prefs.maxResults) {
+      journeys = journeys.slice(0, prefs.maxResults)
+    }
 
     if (journeys.length === 0) {
       warnings.push("No journeys match your preferences (try without --regio)")
@@ -276,10 +348,8 @@ export function createAgentHarness(
       warnings.push(...cancelledLegWarnings(j))
     }
 
-    const hasRealtime =
-      response.realtime?.available === true ||
-      journeys.some((j) => j.legs.some((leg) => leg.realTime))
-    if (!hasRealtime) {
+    const realtime = normalizeRealtime(response.realtime, journeys, when)
+    if (!realtime.available) {
       warnings.push(SCHEDULE_ONLY_WARNING)
     }
 
@@ -289,6 +359,7 @@ export function createAgentHarness(
     const resolved: PlanTripResult["resolved"] = {}
     if (fromResolved) resolved.from = snapFromResolved(fromResolved)
     if (toResolved) resolved.to = snapFromResolved(toResolved)
+    const resolvedOut = Object.keys(resolved).length > 0 ? resolved : undefined
 
     let meta = response.meta
     if (meta) {
@@ -324,17 +395,31 @@ export function createAgentHarness(
       }
     }
 
+    // Single compact build — agent envelope is the harness product.
+    const agent = compactPlanTrip({
+      ...response,
+      meta,
+      journeys,
+      realtime,
+      labels,
+      warnings: dedupedWarnings,
+      resolved: resolvedOut,
+    })
+
     return {
       ...response,
       meta,
       journeys,
+      realtime,
       labels,
       warnings: dedupedWarnings,
       preferencesApplied: {
         ...prefs,
         serverFiltered,
       },
-      resolved: Object.keys(resolved).length > 0 ? resolved : undefined,
+      resolved: resolvedOut,
+      intelligence: agent.intelligence,
+      agent,
     }
   }
 
@@ -347,11 +432,17 @@ export function createAgentHarness(
     return { ...live, resolved }
   }
 
-  function compactJsonPayload(data: unknown, kind: FormatKind, opts?: HarnessFormatOptions): unknown {
+  async function viewTrain(runId: string): Promise<ViewTrainResponse & { agent: CompactTrain }> {
+    const data = await client.viewTrain(runId)
+    return { ...data, agent: compactTrain(data) }
+  }
+
+  function compactJsonPayload(data: unknown, kind: FormatKind): unknown {
     switch (kind) {
       case "find":
         return compactFind(data as import("@imtakt/core").FindStopsResponse)
       case "journey":
+        if (isPlanTripResult(data)) return data.agent
         return compactPlanTrip(
           data as PlanJourneyResponse & {
             labels?: RankedJourney[]
@@ -364,8 +455,17 @@ export function createAgentHarness(
         const { resolved: _r, ...liveOnly } = live
         return compactLive(liveOnly)
       }
-      case "train":
+      case "train": {
+        if (
+          typeof data === "object" &&
+          data != null &&
+          "agent" in data &&
+          (data as { agent?: CompactTrain }).agent?.schema
+        ) {
+          return (data as { agent: CompactTrain }).agent
+        }
         return compactTrain(data as ViewTrainResponse)
+      }
       default:
         return data
     }
@@ -377,28 +477,58 @@ export function createAgentHarness(
     opts?: HarnessFormatOptions,
   ): FormatOutput {
     const verbosity = opts?.verbosity ?? "compact"
+    const presentation: PresentationMode = opts?.presentation ?? "json"
     const tz = opts?.timezone ?? defaultTz
-    const journeyData = data as PlanTripResult
+
+    const journeyData = isPlanTripResult(data) ? data : (data as PlanTripResult)
     const warnings = dedupeWarnings(
       opts?.warnings ?? (kind === "journey" ? journeyData.warnings : undefined) ?? [],
     )
     const labels = opts?.labels ?? (kind === "journey" ? journeyData.labels : undefined)
 
-    const jsonPayload =
-      verbosity === "compact" ? compactJsonPayload(data, kind, opts) : data
+    // PlanTripResult already carries the agent envelope — reuse it (single source).
+    let compactPayload: unknown
+    if (kind === "journey" && isPlanTripResult(data)) {
+      compactPayload = data.agent
+    } else if (kind === "journey") {
+      compactPayload = compactPlanTrip({
+        ...(data as PlanJourneyResponse),
+        labels,
+        warnings,
+        resolved: journeyData.resolved,
+        realtime: journeyData.realtime ?? (data as PlanJourneyResponse).realtime,
+      })
+    } else {
+      compactPayload = compactJsonPayload(data, kind)
+    }
 
-    const markdown = formatMarkdown(data, kind, {
-      timezone: tz,
-      labels,
-      warnings,
-      verbosity,
-      includeRunIds: opts?.includeRunIds,
-    })
+    const jsonPayload = verbosity === "compact" ? compactPayload : data
+
+    let markdown: string
+    if (
+      kind === "journey" &&
+      compactPayload &&
+      typeof compactPayload === "object" &&
+      (compactPayload as CompactPlanTrip).schema === PLAN_SCHEMA
+    ) {
+      markdown = formatCompactPlanMarkdown(compactPayload as CompactPlanTrip, {
+        includeRunIds: opts?.includeRunIds === true || verbosity === "full",
+      })
+    } else {
+      markdown = formatMarkdown(data, kind, {
+        timezone: tz,
+        labels,
+        warnings,
+        verbosity,
+        includeRunIds: opts?.includeRunIds,
+      })
+    }
 
     return {
       json: JSON.stringify(jsonPayload),
-      payload: verbosity === "compact" ? jsonPayload : undefined,
+      payload: verbosity === "compact" ? compactPayload : undefined,
       markdown,
+      presentation,
       stderr: warnings.length > 0 ? formatSnapWarning(warnings) : undefined,
     }
   }
@@ -407,6 +537,7 @@ export function createAgentHarness(
     resolvePlace,
     planTrip,
     stationStatus,
+    viewTrain,
     format,
     client,
   }

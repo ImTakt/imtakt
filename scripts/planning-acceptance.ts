@@ -57,11 +57,21 @@ function assert(cond: unknown, msg: string): asserts cond {
 function facetKeys(j: Record<string, unknown>) {
   for (const k of [
     "option",
+    "headline",
+    "brief",
     "durationMinutes",
+    "durationText",
+    "changes",
     "transfers",
+    "changesText",
+    "departLocal",
+    "arriveLocal",
+    "products",
     "totalDelayMinutes",
     "cancelledLegs",
     "riskLevel",
+    "riskScore",
+    "riskSignals",
     "transferGaps",
     "lines",
     "legs",
@@ -69,6 +79,38 @@ function facetKeys(j: Record<string, unknown>) {
     assert(k in j, `missing facet ${k}`)
   }
   assert(["low", "medium", "high"].includes(j.riskLevel as string), `bad riskLevel ${j.riskLevel}`)
+  assert(typeof j.riskScore === "number", "riskScore")
+  assert(Array.isArray(j.riskSignals), "riskSignals not array")
+  assert(typeof j.headline === "string" && (j.headline as string).includes("→"), "headline")
+  assert(typeof j.brief === "string" && (j.brief as string).length > 0, "brief empty")
+  assert(j.changes === j.transfers, "changes/transfers mismatch")
+  const leg0 = (j.legs as Record<string, unknown>[])[0]
+  if (leg0) {
+    assert(leg0.type === "ride", "leg.type")
+    assert(typeof leg0.depLocal === "string", "leg.depLocal")
+    assert(typeof leg0.product === "string", "leg.product")
+  }
+}
+
+function intelligenceShape(intel: Record<string, unknown>) {
+  assert(intel.version === 1, "intelligence.version")
+  assert(intel.decisionBoundary === "agent", "decisionBoundary must be agent")
+  assert(Array.isArray(intel.layers), "layers")
+  // Honesty: no vaporware keys on the wire
+  assert(!("enrichments" in intel), "enrichments must not be present until /intel")
+  assert(!("mlPolicy" in intel), "mlPolicy belongs in docs/export, not every plan")
+  assert(!("weighFields" in intel), "weighFields belongs in docs/export, not every plan")
+  for (const layer of intel.layers as { id: string; present: boolean }[]) {
+    assert(layer.present === true, "only present layers")
+    assert(layer.id === "schedule_facts" || layer.id === "realtime_facts", `bad layer ${layer.id}`)
+  }
+  const rm = intel.riskModel as { id?: string; kind?: string; inputsUnavailable?: unknown }
+  assert(rm?.id === "imtakt.connection_slack.v1", `riskModel.id ${rm?.id}`)
+  assert(rm?.kind === "deterministic_heuristic", "riskModel.kind")
+  assert(Array.isArray(rm?.inputsUnavailable), "inputsUnavailable")
+  const cmp = intel.comparison as { lowRisk?: unknown; highRisk?: unknown; lowestDelay?: unknown }
+  assert(Array.isArray(cmp?.lowRisk) && Array.isArray(cmp?.highRisk), "comparison risk buckets")
+  assert(!("lowestDelay" in (cmp ?? {})), "lowestDelay was renamed; use lowestLiveDelay only with RT")
 }
 
 function runCli(args: string[], opts?: { json?: boolean }): { stdout: string; stderr: string; code: number } {
@@ -114,8 +156,10 @@ await check("npm.cli.local", "platform", async () => {
   const v = runCli(["--version"])
   assert(v.code === 0, v.stderr || "cli exit")
   const j = JSON.parse(v.stdout)
-  assert(j.version === "0.3.0", `version ${j.version}`)
+  assert(j.version === "0.3.1", `version ${j.version}`)
   assert(j.harness === "@imtakt/sdk", "missing harness marker")
+  assert(j.output?.default === "auto", "output.default auto")
+  assert(Array.isArray(j.output?.channels) && j.output.channels.includes("json"), "output.channels")
   return j.version
 })
 
@@ -165,12 +209,35 @@ await check("plan.long_distance_facets", "plan", async () => {
     labels: berlinMuenchen.labels,
     warnings: berlinMuenchen.warnings,
   })
-  const payload = out.payload as { journeys: Record<string, unknown>[] }
+  const payload = out.payload as {
+    schema: string
+    domain: string
+    trip: { from: { name: string }; to: { name: string }; realtime: string; timezone: string }
+    journeys: Record<string, unknown>[]
+    intelligence: Record<string, unknown>
+  }
+  assert(payload.schema === "imtakt.agent.plan/v1", `schema ${payload.schema}`)
+  assert(payload.domain === "transit", `domain ${payload.domain}`)
+  assert(payload.trip?.from?.name && payload.trip?.to?.name, "trip header")
+  assert(payload.trip.timezone === "Europe/Berlin", "trip.timezone")
   assert(payload.journeys.length === berlinMuenchen.journeys.length, "compact dropped options")
   for (const j of payload.journeys) facetKeys(j)
+  intelligenceShape(payload.intelligence)
+  intelligenceShape(berlinMuenchen.intelligence as unknown as Record<string, unknown>)
   assert(berlinMuenchen.labels.length >= 1, "no labels")
+  // Harness product: agent envelope attached on planTrip (no format required)
+  assert(berlinMuenchen.agent?.schema === "imtakt.agent.plan/v1", "trip.agent missing")
+  assert(berlinMuenchen.agent.journeys.length === payload.journeys.length, "agent/format parity")
+  assert(berlinMuenchen.realtime != null, "realtime always normalized")
+  assert(typeof berlinMuenchen.realtime.available === "boolean", "realtime.available")
+  assert(typeof berlinMuenchen.realtime.asOf === "string", "realtime.asOf")
+  assert(out.presentation === "json", "default presentation is json")
+  assert(out.payload === berlinMuenchen.agent, "format reuses trip.agent")
+  assert(typeof out.markdown === "string" && out.markdown.includes("→"), "markdown available")
+  assert(out.markdown.includes(payload.journeys[0]?.departLocal as string), "md/json parity")
   writeFileSync(join(TMP, "berlin-muenchen.json"), out.json!)
-  return `${payload.journeys.length} options; tags=${JSON.stringify(berlinMuenchen.labels[0]?.tags)}`
+  writeFileSync(join(TMP, "berlin-muenchen.md"), out.markdown)
+  return `${payload.trip.from.name}→${payload.trip.to.name}; ${payload.journeys.length} options; agent attached`
 })
 
 await check("plan.regio_excludes_ice", "plan", async () => {
@@ -253,13 +320,17 @@ await check("plan.max_transfers", "plan", async () => {
   return `${trip.journeys.length} options with ≤1 transfer`
 })
 
-await check("plan.api_realtime_snapshot", "plan", async () => {
-  if (berlinMuenchen!.realtime?.available != null) {
-    return `realtime.available=${berlinMuenchen!.realtime.available} asOf=${berlinMuenchen!.realtime.asOf}`
-  }
-  return {
-    soft: "journey.realtime missing on API — router 0.3 deploy pending (clients still enrich warnings)",
-  }
+await check("plan.realtime_normalized", "plan", async () => {
+  const rt = berlinMuenchen!.realtime
+  assert(rt != null, "realtime missing after harness normalize")
+  assert(typeof rt.available === "boolean", "available")
+  assert(rt.asOf.length > 0, "asOf")
+  // trip.agent.trip.realtime mirrors normalized snapshot
+  assert(
+    berlinMuenchen!.agent.trip.realtime === (rt.available ? "live" : "schedule"),
+    "agent trip.realtime mismatch",
+  )
+  return `available=${rt.available} asOf=${rt.asOf}; agent=${berlinMuenchen!.agent.trip.realtime}`
 })
 
 await check("plan.warnings_deduped", "plan", async () => {

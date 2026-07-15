@@ -3,7 +3,7 @@ import { z } from "zod"
 import { FindStopsRequestSchema, PlaceRefSchema } from "@imtakt/core"
 import type { AgentHarness } from "@imtakt/sdk"
 import { ImTaktAmbiguousPlaceError } from "@imtakt/sdk"
-import { formatToolError, toolError, toolJson, toolJsonFromFormat } from "./format.js"
+import { formatToolError, toolError, toolFromFormat, toolJson, toolJsonFromFormat } from "./format.js"
 
 export function registerImTaktTools(server: McpServer, harness: AgentHarness): void {
   server.tool(
@@ -42,9 +42,9 @@ export function registerImTaktTools(server: McpServer, harness: AgentHarness): v
         .optional()
         .describe("Regio only — exclude ICE/IC/EC"),
       presentation: z
-        .enum(["json", "markdown", "both"])
+        .enum(["json", "markdown"])
         .optional()
-        .describe("json default; markdown adds human-readable block"),
+        .describe("json (default, agent envelope) or markdown (human cards)"),
     },
     async ({ from, to, when, excludeLongDistance, presentation }) => {
       try {
@@ -56,22 +56,10 @@ export function registerImTaktTools(server: McpServer, harness: AgentHarness): v
         })
         const mode = presentation ?? "json"
         const formatted = harness.format(result, "journey", {
-          labels: result.labels,
-          warnings: result.warnings,
-          verbosity: mode === "json" ? "compact" : "full",
+          presentation: mode,
+          verbosity: "compact",
         })
-        if (mode === "json") return toolJsonFromFormat(formatted)
-        if (mode === "markdown") {
-          return {
-            content: [{ type: "text" as const, text: formatted.markdown ?? "" }],
-          }
-        }
-        return {
-          content: [
-            { type: "text" as const, text: formatted.json ?? "" },
-            { type: "text" as const, text: formatted.markdown ?? "" },
-          ],
-        }
+        return toolFromFormat(formatted, mode)
       } catch (err) {
         if (err instanceof ImTaktAmbiguousPlaceError) {
           return toolError(
@@ -114,12 +102,12 @@ export function registerImTaktTools(server: McpServer, harness: AgentHarness): v
     async ({ station, limit, presentation }) => {
       try {
         const result = await harness.stationStatus(station, { limit })
-        if (presentation === "markdown") {
-          const md = harness.format(result, "live", { verbosity: "full" }).markdown
-          return { content: [{ type: "text" as const, text: md ?? "" }] }
-        }
-        const compact = harness.format(result, "live")
-        return toolJsonFromFormat(compact)
+        const mode = presentation ?? "json"
+        const formatted = harness.format(result, "live", {
+          presentation: mode,
+          verbosity: "compact",
+        })
+        return toolFromFormat(formatted, mode)
       } catch (err) {
         if (err instanceof ImTaktAmbiguousPlaceError) {
           return toolError(err.message)
@@ -138,12 +126,13 @@ export function registerImTaktTools(server: McpServer, harness: AgentHarness): v
     },
     async ({ runId, presentation }) => {
       try {
-        const result = await harness.client.viewTrain(runId)
-        if (presentation === "markdown") {
-          const md = harness.format(result, "train").markdown
-          return { content: [{ type: "text" as const, text: md ?? "" }] }
-        }
-        return toolJson(result)
+        const result = await harness.viewTrain(runId)
+        const mode = presentation ?? "json"
+        const formatted = harness.format(result, "train", {
+          presentation: mode,
+          verbosity: "compact",
+        })
+        return toolFromFormat(formatted, mode)
       } catch (err) {
         return toolError(formatToolError(err))
       }

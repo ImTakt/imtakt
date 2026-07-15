@@ -9,48 +9,73 @@ import {
   formatAnalyticsMarkdown,
   getUseCase,
 } from "./analytics.js"
+import {
+  ExitCode,
+  FormatError,
+  resolveFormat,
+  writeError,
+  writeJson,
+  writeMarkdown,
+  writeWarning,
+  type OutputFormat,
+} from "./output.js"
 
 const VERSION = readPackageVersion()
-const HELP = `imtakt — agent CLI for ImTakt Server (uses @imtakt/sdk harness)
+
+const HELP = `imtakt — German transit CLI for agents (ImTakt harness)
+
+Usage:
+  imtakt <command> [args] [options]
 
 Commands:
-  find <query> [--limit N]
-  journey <from> <to> [--at <iso>]
-  live --stop-id <id> | <place> [--limit N] [--when <iso>]
-  train <runId>
-  analytics [list|path <script>|use-case <id>]   Optional transforms (instant catalog)
+  find <query>                         Resolve stops
+  journey <from> <to>                  Plan trip (all options + risk facets)
+  live <place> | --stop-id <id>        Live departures
+  train <runId>                        Train run detail
+  analytics [list|path|use-case]       Optional python3 transforms catalog
 
-Harness compact JSON already includes per-option facets (risk, delays, transfers).
-Optional python3 pipe (warnings on stderr — use 2>/dev/null):
-  imtakt analytics                                    # catalog + use cases (JSON when piped)
-  imtakt analytics use-case compare_time_windows
-  imtakt journey "A" "B" --format json 2>/dev/null | python3 "$(imtakt analytics path delay-summary)"
+Output (CLI Spec):
+  --format json|md|auto   Select ONE channel (default: auto)
+  -o <fmt>                Alias for --format
+  --json                  Shorthand for --format json
+  --pretty                Indent JSON (handy on TTY)
 
-Options:
-  --server URL       API base (default: https://api.imtakt.dev)
-  --at <iso>         Journey departure (ISO 8601 UTC; default: now)
-  --when <iso>       Live board reference time (ISO 8601 UTC)
-  --limit <n>        find: matches (default 8). live: departures (default 16, max 30)
-  --stop-id <id>     Stop id for live (from find output)
-  --from-id <id>     Journey origin stop id (skip name resolve)
-  --to-id <id>       Journey destination stop id
-  --regio, --no-ice  Exclude ICE/IC/EC long-distance legs
-  --confirm-snap     Fail when place snap is fuzzy or low-confidence
-  --format <fmt>     json | md | both (default: md on TTY, json when piped)
-  --verbose          Full JSON + markdown (includes runIds, inline warnings)
+  auto = markdown on TTY, JSON when piped (agents/scripts)
+  stdout = data only · stderr = warnings + {"error","code"} on failure
 
-Environment:
-  IMTAKT_SERVER_URL
+  Env: IMTAKT_FORMAT=json|md   IMTAKT_SERVER_URL=<url>
 
-Stdout: JSON or markdown per --format. Warnings on stderr.
-Docs: https://github.com/ImTakt/imtakt/blob/main/docs/agent-harness.md
+Journey options:
+  --at <iso>              Departure UTC (default: now)
+  --from-id / --to-id     Skip name resolve
+  --regio, --no-ice       Exclude ICE/IC/EC
+  --confirm-snap          Fail on fuzzy place snap
+
+Other:
+  --when <iso>            Live board reference time
+  --limit <n>             find (default 8) · live (default 16, max 30)
+  --stop-id <id>          Live by stop id
+  --server <url>          API base
+  --verbose               Raw API JSON (debug; not the agent envelope)
+  -h, --help              This help
+  -V, --version           {"name","version","harness",...}
+
+Exit codes: 0 ok · 1 usage · 2 api · 3 ambiguous place
+
+Examples:
+  imtakt journey "Berlin Hbf" "München Hbf"              # TTY → markdown
+  imtakt journey "Berlin Hbf" "München Hbf" | jq .       # pipe → JSON
+  imtakt journey "A" "B" --json --pretty
+  imtakt find "Gräfelfing" -o md
+  imtakt analytics path delay-summary
+
+Docs: https://github.com/ImTakt/imtakt/blob/main/docs/cli.md
 `
 
 const args = process.argv.slice(2)
 
-function fail(message: string): never {
-  console.error(JSON.stringify({ error: message }))
-  process.exit(1)
+function hasFlag(name: string): boolean {
+  return args.includes(name)
 }
 
 function flagValue(name: string): string | undefined {
@@ -59,29 +84,26 @@ function flagValue(name: string): string | undefined {
   return args[idx + 1]
 }
 
-function hasFlag(name: string): boolean {
-  return args.includes(name)
-}
-
 function parseLimit(defaultValue: number, max?: number): number {
   const raw = flagValue("--limit")
   if (raw === undefined) return defaultValue
   const n = Number(raw)
-  if (!Number.isFinite(n) || n < 1) fail(`Invalid --limit: ${raw}`)
+  if (!Number.isFinite(n) || n < 1) {
+    writeError({ error: `Invalid --limit: ${raw}`, code: "usage" }, ExitCode.USAGE)
+  }
   if (max != null && n > max) return max
   return Math.floor(n)
 }
 
-type OutputFormat = "json" | "md" | "both"
-
-function defaultFormat(): OutputFormat {
-  const explicit = flagValue("--format") as OutputFormat | undefined
-  if (explicit === "json" || explicit === "md" || explicit === "both") return explicit
-  return process.stdout.isTTY ? "md" : "json"
-}
-
 function verbosity(): FormatVerbosity {
   return hasFlag("--verbose") ? "full" : "compact"
+}
+
+function wantPretty(format: OutputFormat, tty: boolean): boolean {
+  if (format !== "json") return false
+  if (hasFlag("--pretty")) return true
+  // Compact one-liner when piped; pretty when human forced --json on TTY
+  return tty && hasFlag("--json")
 }
 
 function emit(
@@ -89,33 +111,60 @@ function emit(
   data: unknown,
   kind: FormatKind,
   format: OutputFormat,
+  tty: boolean,
   extra?: { labels?: import("@imtakt/core").RankedJourney[]; warnings?: string[] },
 ): void {
-  const out = harness.format(data, kind, { ...extra, verbosity: verbosity() })
-  if (format === "json" || format === "both") {
-    console.log(out.json ?? JSON.stringify(data))
-  } else if (out.markdown) {
-    console.log(out.markdown.trimEnd())
+  const out = harness.format(data, kind, {
+    ...extra,
+    verbosity: verbosity(),
+    presentation: format === "md" ? "markdown" : "json",
+  })
+
+  if (format === "json") {
+    if (verbosity() === "full") {
+      writeJson(JSON.parse(out.json), wantPretty(format, tty))
+    } else if (out.payload !== undefined) {
+      writeJson(out.payload, wantPretty(format, tty))
+    } else {
+      writeJson(JSON.parse(out.json), wantPretty(format, tty))
+    }
+  } else {
+    writeMarkdown(out.markdown)
   }
-  if (out.stderr) process.stderr.write(out.stderr)
+
+  if (out.stderr) writeWarning(out.stderr)
 }
 
 if (hasFlag("--version") || hasFlag("-V")) {
-  console.log(
-    JSON.stringify({
+  writeJson(
+    {
       name: "@imtakt/cli",
       version: VERSION,
       harness: "@imtakt/sdk",
       analytics: "imtakt analytics",
-    }),
+      output: { default: "auto", channels: ["json", "md"] },
+    },
+    false,
   )
-  process.exit(0)
+  process.exit(ExitCode.OK)
 }
 
 if (hasFlag("--help") || hasFlag("-h") || args.length === 0) {
-  console.log(HELP)
-  process.exit(args.length === 0 ? 1 : 0)
+  process.stdout.write(HELP)
+  process.exit(args.length === 0 ? ExitCode.USAGE : ExitCode.OK)
 }
+
+let formatResolved
+try {
+  formatResolved = resolveFormat(args)
+} catch (err) {
+  if (err instanceof FormatError) {
+    writeError({ error: err.message, code: "format" }, ExitCode.USAGE)
+  }
+  throw err
+}
+
+const { format, tty } = formatResolved
 
 const serverFlag = args.indexOf("--server")
 const baseUrl = resolveBaseUrl(
@@ -133,7 +182,9 @@ function placeRef(cmdIndex: number, idFlag: "--from-id" | "--to-id"): PlaceRef {
   const id = flagValue(idFlag)
   if (id) return { stopId: id }
   const val = args[cmdIndex]
-  if (!val || val.startsWith("-")) fail(`Missing place argument`)
+  if (!val || val.startsWith("-")) {
+    writeError({ error: "Missing place argument", code: "usage" }, ExitCode.USAGE)
+  }
   return val
 }
 
@@ -141,23 +192,30 @@ function runAnalytics(sub: string | undefined): void {
   const manifest = analyticsManifest()
 
   if (!sub || sub === "list" || sub === "ls") {
-    if (process.stdout.isTTY && !hasFlag("--format")) {
-      console.log(formatAnalyticsMarkdown(manifest))
+    if (format === "md") {
+      writeMarkdown(formatAnalyticsMarkdown(manifest))
       return
     }
-    console.log(JSON.stringify(manifest))
+    writeJson(manifest, wantPretty(format, tty))
     return
   }
 
   if (sub === "path") {
     const name = args[2]
     if (!name || name.startsWith("-")) {
-      fail("Usage: imtakt analytics path <script>")
+      writeError(
+        { error: "Usage: imtakt analytics path <script>", code: "usage" },
+        ExitCode.USAGE,
+      )
     }
     try {
-      console.log(analyticsScriptPath(name))
+      // Path is a bare string — always plain stdout (pipe-friendly)
+      process.stdout.write(analyticsScriptPath(name) + "\n")
     } catch (err) {
-      fail(err instanceof Error ? err.message : String(err))
+      writeError(
+        { error: err instanceof Error ? err.message : String(err), code: "usage" },
+        ExitCode.USAGE,
+      )
     }
     return
   }
@@ -165,31 +223,45 @@ function runAnalytics(sub: string | undefined): void {
   if (sub === "use-case" || sub === "usecase") {
     const id = args[2]
     if (!id || id.startsWith("-")) {
-      console.log(JSON.stringify({ useCases: manifest.useCases.map((u) => u.id) }))
+      writeJson(
+        { useCases: manifest.useCases.map((u) => u.id) },
+        wantPretty(format, tty),
+      )
       return
     }
     const uc = getUseCase(id)
-    if (!uc) fail(`Unknown use-case: ${id}. Try: imtakt analytics`)
-    if (process.stdout.isTTY && !hasFlag("--format")) {
-      console.log(`## ${uc.id} — ${uc.title}\n\n${uc.recipe}\n`)
+    if (!uc) {
+      writeError(
+        { error: `Unknown use-case: ${id}. Try: imtakt analytics`, code: "usage" },
+        ExitCode.USAGE,
+      )
+    }
+    if (format === "md") {
+      writeMarkdown(`## ${uc.id} — ${uc.title}\n\n${uc.recipe}\n`)
       return
     }
-    console.log(JSON.stringify(uc))
+    writeJson(uc, wantPretty(format, tty))
     return
   }
 
   if (sub === "--help" || sub === "-h" || sub === "help") {
-    console.log(formatAnalyticsMarkdown(manifest))
+    writeMarkdown(formatAnalyticsMarkdown(manifest))
     return
   }
 
-  fail(`Unknown analytics subcommand: ${sub}. Try: imtakt analytics`)
+  writeError(
+    { error: `Unknown analytics subcommand: ${sub}. Try: imtakt analytics`, code: "usage" },
+    ExitCode.USAGE,
+  )
 }
 
 async function main() {
   const cmd = args[0]
   if (!cmd || cmd.startsWith("-")) {
-    fail("Usage: imtakt <find|journey|live|train|analytics> ...")
+    writeError(
+      { error: "Usage: imtakt <find|journey|live|train|analytics> ...", code: "usage" },
+      ExitCode.USAGE,
+    )
   }
 
   if (cmd === "analytics") {
@@ -197,21 +269,27 @@ async function main() {
     return
   }
 
-  const format = defaultFormat()
-
   switch (cmd) {
     case "find": {
       const query = args[1]
-      if (!query || query.startsWith("-")) fail("Usage: imtakt find <query> [--limit N]")
+      if (!query || query.startsWith("-")) {
+        writeError(
+          { error: "Usage: imtakt find <query> [--limit N]", code: "usage" },
+          ExitCode.USAGE,
+        )
+      }
       const data = await client.findStops({ place: query, limit: parseLimit(8) })
-      emit(harness, data, "find", format)
+      emit(harness, data, "find", format, tty)
       return
     }
     case "journey": {
       const from = placeRef(1, "--from-id")
       const to = placeRef(2, "--to-id")
       if (!to || (typeof to === "string" && to.startsWith("-"))) {
-        fail("Usage: imtakt journey <from> <to> [--at <iso>]")
+        writeError(
+          { error: "Usage: imtakt journey <from> <to> [--at <iso>]", code: "usage" },
+          ExitCode.USAGE,
+        )
       }
       const when = flagValue("--at") ?? new Date().toISOString()
       try {
@@ -224,19 +302,24 @@ async function main() {
             minSnapConfidence: hasFlag("--confirm-snap") ? 1 : undefined,
           },
         })
-        emit(harness, result, "journey", format, {
+        emit(harness, result, "journey", format, tty, {
           labels: result.labels,
           warnings: result.warnings,
         })
       } catch (err) {
         if (err instanceof ImTaktAmbiguousPlaceError) {
-          process.stderr.write(
-            harness.format(
-              { matches: err.candidates },
-              "find",
-            ).markdown ?? "",
+          writeError(
+            {
+              error: err.message,
+              code: "ambiguous",
+              candidates: err.candidates.map((c) => ({
+                id: c.id,
+                name: c.name,
+                confidence: c.confidence,
+              })),
+            },
+            ExitCode.AMBIGUOUS,
           )
-          fail(err.message)
         }
         throw err
       }
@@ -251,35 +334,67 @@ async function main() {
           limit,
           ...(when ? { when } : {}),
         })
-        emit(harness, data, "live", format)
+        emit(harness, data, "live", format, tty)
         return
       }
       const place = args[1]
       if (!place || place.startsWith("-")) {
-        fail("Usage: imtakt live --stop-id <id> | <place> [--limit N] [--when <iso>]")
+        writeError(
+          {
+            error: "Usage: imtakt live --stop-id <id> | <place> [--limit N] [--when <iso>]",
+            code: "usage",
+          },
+          ExitCode.USAGE,
+        )
       }
-      const data = await harness.stationStatus(place, {
-        limit,
-        ...(when ? { when } : {}),
-      })
-      if (data.resolved.warning) {
-        process.stderr.write(`> ⚠ ${data.resolved.warning}\n`)
+      try {
+        const data = await harness.stationStatus(place, {
+          limit,
+          ...(when ? { when } : {}),
+        })
+        if (data.resolved.warning) {
+          writeWarning(`> ⚠ ${data.resolved.warning}`)
+        }
+        emit(harness, data, "live", format, tty)
+      } catch (err) {
+        if (err instanceof ImTaktAmbiguousPlaceError) {
+          writeError(
+            {
+              error: err.message,
+              code: "ambiguous",
+              candidates: err.candidates.map((c) => ({
+                id: c.id,
+                name: c.name,
+                confidence: c.confidence,
+              })),
+            },
+            ExitCode.AMBIGUOUS,
+          )
+        }
+        throw err
       }
-      emit(harness, data, "live", format)
       return
     }
     case "train": {
       const runId = args[1]
-      if (!runId || runId.startsWith("-")) fail("Usage: imtakt train <runId>")
-      const data = await client.viewTrain(runId)
-      emit(harness, data, "train", format)
+      if (!runId || runId.startsWith("-")) {
+        writeError({ error: "Usage: imtakt train <runId>", code: "usage" }, ExitCode.USAGE)
+      }
+      const data = await harness.viewTrain(runId)
+      emit(harness, data, "train", format, tty)
       return
     }
     default:
-      fail(`Unknown command: ${cmd}`)
+      writeError({ error: `Unknown command: ${cmd}`, code: "usage" }, ExitCode.USAGE)
   }
 }
 
 main().catch((err) => {
-  fail(err instanceof Error ? err.message : String(err))
+  writeError(
+    {
+      error: err instanceof Error ? err.message : String(err),
+      code: "api",
+    },
+    ExitCode.API,
+  )
 })

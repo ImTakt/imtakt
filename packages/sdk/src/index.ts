@@ -21,8 +21,26 @@ import { ImTaktApiError, ImTaktValidationError, readApiError } from "./errors.js
 export type { FindStopsRequest, FindStopsResponse, PlanJourneyRequest, PlanJourneyResponse }
 export type { StationBoardResponse, StationLiveResponse, ViewTrainResponse }
 export { ImTaktApiError, ImTaktValidationError } from "./errors.js"
-export { ImTaktAmbiguousPlaceError, createAgentHarness } from "./harness.js"
-export type { AgentHarness, PlanTripResult, ResolvedPlace, TripPreferences, FormatOutput } from "./harness.js"
+export { ImTaktAmbiguousPlaceError, createAgentHarness, normalizeRealtime } from "./harness.js"
+export type {
+  AgentHarness,
+  PlanTripResult,
+  ResolvedPlace,
+  TripPreferences,
+  FormatOutput,
+  HarnessFormatOptions,
+} from "./harness.js"
+export type {
+  PlanIntelligence,
+  IntelligenceLayerId,
+  CompactJourney,
+  CompactPlanTrip,
+  CompactTripHeader,
+  CompactLeg,
+  PresentationMode,
+  PlanningDomain,
+} from "@imtakt/core"
+export { PLAN_SCHEMA, FIND_SCHEMA, LIVE_SCHEMA, TRAIN_SCHEMA } from "@imtakt/core"
 export { resolveBaseUrl } from "@imtakt/core"
 
 export type ImTaktClientOptions = {

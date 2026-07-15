@@ -1,10 +1,16 @@
 {
   "name": "@imtakt/sdk",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "HTTP client for ImTakt Server /v1",
   "license": "MIT",
   "homepage": "https://imtakt.dev/mcp",
-  "keywords": ["gtfs", "transit", "germany", "imtakt", "api-client"],
+  "keywords": [
+    "gtfs",
+    "transit",
+    "germany",
+    "imtakt",
+    "api-client"
+  ],
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -36,7 +42,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "^0.3.0",
+    "@imtakt/core": "^0.3.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {

@@ -6,9 +6,15 @@ import type {
   ViewTrainResponse,
 } from "./schemas.js"
 import type { RankedJourney } from "./journey-filters.js"
-import { formatPlaceRef } from "./place-ref-format.js"
+import { assessJourneyRisk } from "./connection-risk.js"
+import {
+  AGENT_TZ,
+  localHm,
+} from "./bahn-format.js"
+import type { CompactJourney, CompactPlanTrip } from "./agent-payload.js"
+import { PLAN_SCHEMA } from "./agent-envelope.js"
 
-const DEFAULT_TZ = "Europe/Berlin"
+const DEFAULT_TZ = AGENT_TZ
 
 export type FormatVerbosity = "compact" | "full"
 
@@ -22,11 +28,7 @@ export type FormatOptions = {
 }
 
 function localTime(iso: string, timezone: string): string {
-  return new Date(iso).toLocaleTimeString("de-DE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: timezone,
-  })
+  return localHm(iso, timezone)
 }
 
 function delaySuffix(minutes: number): string {
@@ -145,71 +147,154 @@ function shortStop(name: string): string {
   return parts[parts.length - 1]?.trim() || name
 }
 
+/**
+ * Markdown from compact plan — single source of truth with JSON.
+ * Prefer this over formatJourney(raw) so JSON and MD never diverge.
+ */
+export function formatCompactPlanMarkdown(
+  plan: CompactPlanTrip,
+  opts?: { includeRunIds?: boolean; agentMeta?: boolean },
+): string {
+  const lines: string[] = []
+  const { trip, journeys, intelligence } = plan
+
+  if (opts?.agentMeta !== false) {
+    lines.push(
+      `_agent · ${trip.from.name} → ${trip.to.name} · ${trip.realtime} · ` +
+        `domain=${plan.domain} · decisionBoundary=${intelligence.decisionBoundary} · ` +
+        `fastest=#${intelligence.comparison.fastest ?? "—"} ` +
+        `earliest=#${intelligence.comparison.earliest ?? "—"} ` +
+        `lowRisk=[${intelligence.comparison.lowRisk.join(",") || "—"}]_`,
+      "",
+    )
+  }
+
+  lines.push(`# ${trip.from.name} → ${trip.to.name}`)
+  const reqBits: string[] = []
+  if (trip.from.requested && trip.from.requested !== trip.from.name) {
+    reqBits.push(`from: ${trip.from.requested}`)
+  }
+  if (trip.to.requested && trip.to.requested !== trip.to.name) {
+    reqBits.push(`to: ${trip.to.requested}`)
+  }
+  if (reqBits.length) lines.push(`_${reqBits.join(" · ")}_`)
+
+  const asOf = trip.asOf ? localHm(trip.asOf) : ""
+  lines.push(
+    `_${trip.realtime}${asOf ? ` · ${asOf}` : ""} · ${trip.timezone}_`,
+    "",
+  )
+
+  for (const j of journeys) {
+    formatCompactJourneyCard(j, lines, opts?.includeRunIds === true)
+    lines.push("")
+  }
+
+  return lines.join("\n").trimEnd() + "\n"
+}
+
+function formatCompactJourneyCard(
+  j: CompactJourney,
+  lines: string[],
+  includeRunIds: boolean,
+): void {
+  const tags = j.tags?.length ? ` · _${j.tags.join(", ")}_` : ""
+  lines.push(
+    `## ${j.option}  ${j.departLocal} → ${j.arriveLocal}  ·  ${j.durationText}  ·  ${j.changesText}${tags}`,
+  )
+  lines.push(
+    `${j.products.join(" · ") || "—"}  ·  risk ${j.riskLevel}` +
+      (j.riskScore > 0 ? ` (${j.riskScore})` : ""),
+  )
+
+  for (let i = 0; i < j.legs.length; i++) {
+    const leg = j.legs[i]!
+    const delay = delaySuffix(leg.delayMinutes ?? 0)
+    const cancel = leg.cancelled ? " **entfällt**" : ""
+    const plat = leg.platform ? ` Gl.${leg.platform}` : ""
+    const run =
+      includeRunIds && leg.runId ? ` · \`${leg.runId.slice(0, 24)}…\`` : ""
+    lines.push(
+      `- **${leg.depLocal}–${leg.arrLocal}** ${leg.line} ${shortStop(leg.from)} → ${shortStop(leg.to)}${plat}${delay}${cancel}${run}`,
+    )
+    const gap = j.transferGaps[i]
+    if (gap) {
+      lines.push(`  - _${gap.label} in ${gap.at}_`)
+    }
+  }
+}
+
 export function formatJourney(data: PlanJourneyResponse, opts?: FormatOptions): string {
+  // Prefer compact path when caller already compacted (schema present)
+  const maybeCompact = data as unknown as CompactPlanTrip
+  if (
+    maybeCompact &&
+    typeof maybeCompact === "object" &&
+    maybeCompact.schema === PLAN_SCHEMA &&
+    maybeCompact.trip &&
+    Array.isArray(maybeCompact.journeys)
+  ) {
+    return formatCompactPlanMarkdown(maybeCompact, {
+      includeRunIds: opts?.includeRunIds,
+    })
+  }
+
+  // Fallback: build presentation via assess on raw API (verbose / legacy)
   const tz = opts?.timezone ?? DEFAULT_TZ
   const compact = opts?.verbosity !== "full"
   const showRunIds = opts?.includeRunIds === true
   const lines: string[] = []
 
-  // Warnings belong on stderr in compact mode — not duplicated in markdown body
   if (!compact && opts?.warnings?.length) {
     lines.push(formatSnapWarning(opts.warnings).trimEnd(), "")
   }
 
-  if (data.meta) {
-    const fromReq = formatPlaceRef(data.meta.from.requested, data.meta.from.snappedStop.name)
-    const toReq = formatPlaceRef(data.meta.to.requested, data.meta.to.snappedStop.name)
-    if (fromReq !== data.meta.from.snappedStop.name) {
-      lines.push(`**From:** ${fromReq} → ${data.meta.from.snappedStop.name}`)
-    }
-    if (toReq !== data.meta.to.snappedStop.name) {
-      lines.push(`**To:** ${toReq} → ${data.meta.to.snappedStop.name}`)
-    }
-    if (lines.length > 0) lines.push("")
+  const fromName =
+    data.meta?.from.snappedStop.name ?? data.journeys[0]?.legs[0]?.origin.name
+  const toName =
+    data.meta?.to.snappedStop.name ??
+    data.journeys[0]?.legs[data.journeys[0].legs.length - 1]?.destination.name
+  if (fromName && toName) {
+    lines.push(`# ${fromName} → ${toName}`, "")
   }
 
-  const journeyResponse = data as PlanJourneyResponse
-  if (journeyResponse.realtime) {
-    const rt = journeyResponse.realtime.available ? "live GTFS-RT" : "schedule only"
-    const asOf = localTime(journeyResponse.realtime.asOf, tz)
-    lines.push(`_${rt} · ${asOf}_`, "")
+  if (data.realtime) {
+    const rt = data.realtime.available ? "live" : "schedule"
+    lines.push(`_${rt} · ${localTime(data.realtime.asOf, tz)} · ${tz}_`, "")
   }
 
   data.journeys.forEach((journey, idx) => {
     const arrive = localTime(journey.legs[journey.legs.length - 1]?.arrival ?? "", tz)
     const depart = localTime(journey.legs[0]?.departure ?? "", tz)
-    if (compact) {
-      lines.push(
-        `## ${idx + 1} · ${journey.durationMinutes} min · arr ${arrive}${labelTags(idx, opts?.labels)}`,
-      )
-    } else {
-      lines.push(
-        `## Option ${idx + 1} · ${journey.durationMinutes} min · ${journey.transfers} transfers${labelTags(idx, opts?.labels)}`,
-      )
-    }
-    for (const leg of journey.legs) {
-      const dep = localTime(leg.departure, tz)
-      const arr = localTime(leg.arrival, tz)
-      const delay = delaySuffix(leg.delayMinutes)
-      const cancel = leg.cancelled ? " **X**" : ""
-      const rt = !compact && !leg.realTime ? " _[sched]_" : ""
+    const useRt =
+      data.realtime?.available === true || journey.legs.some((leg) => leg.realTime === true)
+    const risk = assessJourneyRisk(journey, { useRealtimeDelays: useRt })
+    const products = journey.legs
+      .filter((leg) => leg.line.name !== "Fußweg")
+      .map((leg) => leg.line.name)
+      .filter((name, i, arr) => arr.indexOf(name) === i)
+    const tags = labelTags(idx, opts?.labels)
+    lines.push(`## ${idx + 1}  ${depart} → ${arrive}  ·  ${journey.durationMinutes} Min  ·  ${journey.transfers} Umstiege${tags}`)
+    lines.push(`${products.join(" · ") || "—"}  ·  risk ${risk.riskLevel}`)
+    const rail = journey.legs.filter((leg) => leg.line.name !== "Fußweg")
+    for (let i = 0; i < rail.length; i++) {
+      const leg = rail[i]!
       const plat = leg.platform ? ` Gl.${leg.platform}` : ""
-      if (leg.line.name === "Fußweg") {
-        if (!compact) lines.push(`- ${dep}–${arr} Walk`)
-        continue
-      }
-      const dest = compact ? shortStop(leg.destination.name) : leg.destination.name
       const run = showRunIds && leg.runId ? ` · \`${leg.runId.slice(0, 24)}…\`` : ""
-      if (compact) {
-        lines.push(`- **${dep}** ${leg.line.name} → ${dest}${plat}${delay}${cancel}`)
-      } else {
-        lines.push(
-          `- **${dep}–${arr}** ${leg.line.name}${plat} ${leg.origin.name} → ${leg.destination.name}${delay}${cancel}${rt}${run}`,
+      lines.push(
+        `- **${localTime(leg.departure, tz)}–${localTime(leg.arrival, tz)}** ${leg.line.name} ${shortStop(leg.origin.name)} → ${shortStop(leg.destination.name)}${plat}${delaySuffix(leg.delayMinutes)}${leg.cancelled ? " **entfällt**" : ""}${run}`,
+      )
+      if (i < rail.length - 1) {
+        const next = rail[i + 1]!
+        const gapMin = Math.round(
+          (Date.parse(next.departure) - Date.parse(leg.arrival)) / 60_000,
         )
+        if (Number.isFinite(gapMin)) {
+          lines.push(`  - _${gapMin} Min Umstieg in ${leg.destination.name}_`)
+        }
       }
     }
-    if (compact) lines.push(`_dep ${depart} · ${journey.transfers} transfers_`, "")
-    else lines.push("")
+    lines.push("")
   })
   return lines.join("\n").trimEnd() + "\n"
 }

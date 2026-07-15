@@ -11,7 +11,7 @@
     },
     "mcp": {
       "name": "@imtakt/mcp",
-      "version": "0.1.0",
+      "version": "0.3.1",
       "bin": {
         "imtakt-mcp": "./src/main.ts",
       },
@@ -27,7 +27,7 @@
     },
     "packages/cli": {
       "name": "@imtakt/cli",
-      "version": "0.1.0",
+      "version": "0.3.1",
       "bin": {
         "imtakt": "./src/main.ts",
       },
@@ -41,7 +41,7 @@
     },
     "packages/core": {
       "name": "@imtakt/core",
-      "version": "0.1.0",
+      "version": "0.3.1",
       "dependencies": {
         "zod": "^3.24.2",
       },
@@ -51,9 +51,9 @@
     },
     "packages/sdk": {
       "name": "@imtakt/sdk",
-      "version": "0.1.0",
+      "version": "0.3.1",
       "dependencies": {
-        "@imtakt/core": "^0.1.0",
+        "@imtakt/core": "^0.3.1",
         "zod": "^3.24.2",
       },
       "devDependencies": {

@@ -1,10 +1,17 @@
 {
   "name": "@imtakt/cli",
-  "version": "0.3.0",
-  "description": "Agent-oriented CLI for German transit via ImTakt Server (JSON stdout)",
+  "version": "0.3.1",
+  "description": "Agent-oriented CLI for German transit — JSON for pipes/agents, markdown on TTY",
   "license": "MIT",
   "homepage": "https://imtakt.dev/cli",
-  "keywords": ["gtfs", "transit", "germany", "imtakt", "cli", "bahn"],
+  "keywords": [
+    "gtfs",
+    "transit",
+    "germany",
+    "imtakt",
+    "cli",
+    "bahn"
+  ],
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -32,8 +39,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "^0.3.0",
-    "@imtakt/sdk": "^0.3.0"
+    "@imtakt/core": "^0.3.1",
+    "@imtakt/sdk": "^0.3.1"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

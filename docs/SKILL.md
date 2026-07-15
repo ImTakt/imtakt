@@ -6,7 +6,7 @@ This file is a repo-local reference. Prefer the hosted skill URL for agent insta
 
 ## What ImTakt is
 
-ImTakt is **German transit intelligence for AI agents** — plan journeys, read departure boards, resolve stops, and view live train runs over the full national GTFS network.
+ImTakt is **German transit intelligence for AI agents** — plan journeys, read departure boards, resolve stops, and view live train runs over the full national GTFS network. The harness returns **facts + `intelligence` metadata**; your agent chooses the option. Do not expect ImTakt to auto-pick. See [agent-intelligence.md](./agent-intelligence.md).
 
 - **Hosted API:** `https://api.imtakt.dev/v1`
 - **No API key** on the default hosted path
@@ -47,7 +47,7 @@ Restart the MCP client after saving. No `env` block needed for hosted API.
 
 ## Example agent steps
 
-1. **Named trip:** one call to `imtakt_plan_journey` with `from` / `to` strings and required `when`.
+1. **Named trip:** one call to `imtakt_plan_journey` with `from` / `to` and required `when`. Read the agent envelope (`schema: imtakt.agent.plan/v1`, all `journeys[]` with `headline` + risk) — you pick for the user.
 2. **Coordinates:** `imtakt_plan_journey` with `{ lat, lng }` objects — API geo-snaps to nearest stops.
 3. **Board:** `imtakt_find_station` if needed, then `imtakt_view_station`.
 4. **Train detail:** read `runId` from a leg or departure, then `imtakt_view_train`.

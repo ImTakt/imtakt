@@ -14,13 +14,14 @@ const TIME_GROUNDING = `Before calling imtakt_plan_journey:
 2. If the user gave a relative time ("in 20 minutes", "tomorrow 9am"), compute it FROM that system time. German local times are Europe/Berlin (CET/CEST) — convert to ISO 8601 UTC for the \`when\` field.
 3. Pass \`when\` as ISO 8601 (e.g. 2026-07-03T09:30:00Z).`
 
-const PRESENTATION = `When presenting journeys:
-- Show ALL returned options, not just the first. Label the fastest, the earliest arrival, and the next departure.
-- Times in Europe/Berlin HH:MM. Mention the date if it's not today.
-- Per leg: line name, departure/arrival, platform (Gl.) when present.
-- Realtime: \`realTime: true\` legs carry live data — surface \`delayMinutes\` (e.g. "+5 min") and \`cancelled\` warnings prominently. Never claim live status for legs without realTime.
-- Flag tight transfers (< 5 min between arrival and next departure).
-- Keep each leg's \`runId\` available for follow-ups via imtakt_view_train.`
+const PRESENTATION = `When presenting journeys (DB Navigator style):
+- Use the compact payload: \`trip\` header + each \`journeys[].headline\` as the connection card title.
+- Show ALL options. Prefer \`intelligence.comparison\` tags (fastest / earliest / fewestTransfers) — never invent a single "best" from ImTakt.
+- Times: Europe/Berlin via \`departLocal\` / \`arriveLocal\` / leg \`depLocal\`–\`arrLocal\`. Mention the date if not today.
+- Per leg: line, times, platform as Gl.N, \`delayMinutes\` as "+N", \`cancelled\` as entfällt. Surface \`transferGaps[].label\` (Umstieg).
+- Risk: \`riskLevel\` / \`riskSignals\` — explain trade-offs; you choose for the user.
+- Realtime only when \`trip.realtime\` is "live" or leg \`realTime: true\`.
+- Keep \`runId\` for imtakt_view_train follow-ups.`
 
 export function registerImTaktPrompts(server: McpServer): void {
   server.prompt(
