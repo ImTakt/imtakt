@@ -10,3 +10,5 @@ private/
 
 __pycache__/
 *.py[cod]
+
+.tmp/

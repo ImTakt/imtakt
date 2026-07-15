@@ -11,6 +11,7 @@
     "pack:smoke": "bash scripts/npm-pack-smoke.sh",
     "interface:test": "python3 scripts/interface-test.py",
     "launch:verify": "bash scripts/launch-verify.sh",
+    "accept:planning": "bun scripts/planning-acceptance.ts",
     "audit:packages": "npm audit --workspaces --audit-level=high"
   },
   "devDependencies": {
