@@ -1,5 +1,41 @@
 # Changelog — @imtakt/*
 
+## 0.3.0 — 2026-07-14
+
+**Agent harness — shared SDK workflows, context-aware CLI output.**
+
+### @imtakt/core
+
+- `journey-filters`, `place-confidence`, `format-markdown` primitives
+- `pickBestMatch` token ranking; `agent-payload` compact shapes for agents
+- `PlanJourneyRequest.preferences` (excludeLineClasses, maxTransfers, maxResults)
+- Richer journey `meta` (confidence, alternatives) and `preferencesApplied`
+
+### @imtakt/sdk
+
+- **`createAgentHarness()`** — `resolvePlace`, `planTrip`, `stationStatus`, `format`
+- `ImTaktAmbiguousPlaceError` for disambiguation
+- **Compact output by default** — deduped stderr warnings, agent JSON without bloat; `verbosity: "full"` for complete shapes
+- `planTrip.resolved` — human snap labels for client-side resolve
+- Journey **realtime snapshot** respected — no false “schedule only” when GTFS-RT feed is active
+
+### imtakt-router (deploy)
+
+- Infer `realTime` on legs/departures from delays and platform changes when MOTIS omits the flag
+- `POST /v1/journeys/plan` returns `realtime: { available, asOf }` (feed + per-leg)
+- Live boards report feed availability even when departures are on time
+
+### @imtakt/cli
+
+- TTY → markdown, piped → compact agent JSON (`--format json|md|both`)
+- `--verbose` for full API JSON + inline warnings
+- `--regio` / `--no-ice`, `--from-id` / `--to-id`, `--confirm-snap`
+- `live` accepts place name or `--stop-id`
+
+### @imtakt/mcp
+
+- Tools use agent harness; compact JSON by default; `presentation: "markdown"` for human view
+
 ## 0.2.0 — 2026-07-13
 
 **Agent CLI + live station adoption.**
