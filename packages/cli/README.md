@@ -1,6 +1,6 @@
 # @imtakt/cli
 
-Agent CLI for **ImTakt Server** — JSON stdout, four commands.
+Agent CLI for **ImTakt Server** — five verbs, JSON for pipes, markdown on TTY.
 
 ## Install
 
@@ -12,14 +12,18 @@ One-off without install:
 
 ```bash
 npx -y @imtakt/cli find "Berlin Hbf"
-npx -y @imtakt/cli live --stop-id "de_297950"
-npx -y @imtakt/cli journey "Berlin Hbf" "München Hbf"
-npx -y @imtakt/cli train RUN_ID
+npx -y @imtakt/cli plan "Berlin Hbf" "München Hbf" --view board --json
+npx -y @imtakt/cli show <optionId> --json
+npx -y @imtakt/cli status "Berlin Hbf"
+npx -y @imtakt/cli follow RUN_ID
 ```
+
+Flow: **plan → show → follow**.
 
 ## Docs
 
 - [CLI guide](https://github.com/ImTakt/imtakt/blob/main/docs/cli.md)
+- [Harness](https://github.com/ImTakt/imtakt/blob/main/docs/HARNESS.md)
 
 ## License
 
