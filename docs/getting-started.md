@@ -36,6 +36,8 @@ Beispiele:
 - „Welche Züge fahren als Nächstes ab Köln Hbf?“
 - „Finde Haltestellen in der Nähe vom Brandenburger Tor.“
 
+**Agent-Flow:** `plan` (Board) → `show` → `follow`. CLI: `imtakt plan A B --view board --json`.
+
 ## Entwickler
 
 - MCP-Details: [mcp.md](./mcp.md)

@@ -1,105 +1,73 @@
 # Agent patterns
 
-Recipes using the **agent harness** (`@imtakt/sdk`) or **CLI** (same logic). Prefer harness facets + `intelligence` for decisions; Python only for multi-search / day-of transforms. Foundation: [agent-intelligence.md](./agent-intelligence.md).
+Recipes using the **agent harness** (`@imtakt/sdk`) or **CLI**. Prefer time-first **plan → show → follow**. Foundation: [agent-intelligence.md](./agent-intelligence.md) · [HARNESS.md](./HARNESS.md).
 
-## 1. Resolve before journey
-
-```bash
-imtakt find "Am Haag 8, Gräfelfing" --format md
-imtakt journey "Gräfelfing, Am Haag" "Augsburg Messe" --from-id de_515932
-```
-
-```typescript
-const from = await harness.resolvePlace("Am Haag 8, Gräfelfing", { field: "from" })
-await harness.planTrip({ from: { stopId: from.stopId }, to: "Augsburg Messe" })
-```
-
-## 2. Regio only
+## 1. Office commute (time-first)
 
 ```bash
-imtakt journey "A" "B" --regio
+imtakt plan "Augsburg Messe" "Gräfelfing, Am Haag" \
+  --arrive 08:00 --date 2026-07-20 --fare d-ticket --nearby --view board --json
 ```
 
-```typescript
-await harness.planTrip({ from: "A", to: "B", preferences: { excludeLongDistance: true } })
-```
-
-## 3. Compare all options (no Python)
-
-```typescript
-const planned = await harness.planTrip({ from: "Berlin Hbf", to: "München Hbf" })
-const { trip, journeys, intelligence } = harness.format(planned, "journey", {
-  labels: planned.labels,
-  warnings: planned.warnings,
-}).payload as {
-  trip: { from: { name: string }; to: { name: string }; realtime: "live" | "schedule" }
-  journeys: Array<{
-    option: number
-    headline: string
-    departLocal: string
-    arriveLocal: string
-    changesText: string
-    products: string[]
-    riskLevel: "low" | "medium" | "high"
-    riskScore: number
-    riskSignals: string[]
-  }>
-  intelligence: {
-    decisionBoundary: "agent"
-    riskModel: { id: string; inputsUnavailable: string[] }
-    comparison: { fastest?: number; lowRisk: number[] }
-  }
-}
-// Present like DB: trip header + each headline; you pick using risk/tags/prefs
-```
+Read `meta.latestSafeOptionId` / tags `latest_safe` and `arriveSlackMinutes`. Then:
 
 ```bash
-imtakt journey "Berlin Hbf" "München Hbf" --format json 2>/dev/null \
-  | jq '{ trip, compare: .intelligence.comparison,
-          options: [.journeys[] | {option, headline, riskLevel, riskScore}] }'
+imtakt show <optionId> --json
 ```
 
-## 4. Multi time-window compare
+## 2. D-Ticket / regio
 
 ```bash
-imtakt analytics use-case compare_time_windows
+imtakt plan "A" "B" --fare d-ticket --nearby --view board --window 120m --json
 ```
 
-Agent runs N× `imtakt journey`, merges with `merge-journey-searches`, then chooses.
+Empty board → check `warnings` + `alternatives.fasterWithSurcharge` (do not silently drop `--fare`).
 
-## 5. Round trip
+## 3. Morning vs evening (one call)
 
 ```bash
-imtakt analytics use-case round_trip
+imtakt plan "A" "B" --pack windows --windows "06:00+120m,17:00+120m" \
+  --fare d-ticket --view board --json
 ```
 
-All out×return pairs listed; agent picks the pair.
-
-## 6. Live + train drill-down
+## 4. Round trip
 
 ```bash
-imtakt live "Berlin Hbf" --format json 2>/dev/null \
-  | python3 "$(imtakt analytics path live-delay-summary)"
-
-# From a planned journey:
-imtakt journey "A" "B" --format json 2>/dev/null \
-  | python3 "$(imtakt analytics path extract-run-ids)"
-imtakt train "$RUN_ID" --format json 2>/dev/null \
-  | python3 "$(imtakt analytics path train-summary)"
+imtakt plan "A" "B" --pack round-trip \
+  --arrive 09:00 --return-after 17:30 --dwell 30m --fare d-ticket --view board --json
 ```
 
-```typescript
-const train = await harness.viewTrain(runId) // train.agent = compact envelope
-harness.format(train, "train").payload
+## 5. Day chain A→B→C
+
+```bash
+imtakt plan --pack day-chain --stops "Messe,München Hbf,Gräfelfing" \
+  --dwell 45m --fare d-ticket --view board --json
+```
+
+## 6. Status + follow drill-down
+
+```bash
+imtakt status "Berlin Hbf" --json
+# From expanded plan legs:
+imtakt follow "$RUN_ID" --json
 ```
 
 ## 7. Time grounding
 
 ```bash
+# Berlin local composed with --date
+imtakt plan "A" "B" --arrive 08:00 --date 2026-07-20 --view board --json
+
+# Relative / ISO
 WHEN=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-imtakt journey "Berlin Hbf" "München Hbf" --at "$WHEN"
+imtakt plan "A" "B" --at "$WHEN" --window 90m --view board --json
 ```
 
-## Scale-out note
+## Anti-patterns
 
-Today’s domain is **transit**. The analytics catalog reserves `logistics` so a future multi-domain planning harness can share discovery patterns without changing `createAgentHarness()` surface area.
+- Looping `--at` every 3–5 minutes × origins
+- Full `plan/v1` on every probe (use `--view board` first)
+- Manual Messe Süd/Nord re-queries (use `--nearby`)
+- Client stitch logic (server hub-stitches when regio is sparse)
+
+Advanced offline transforms: `imtakt analytics use-case compare_time_windows` (prefer `--pack windows`).

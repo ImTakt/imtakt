@@ -1,20 +1,14 @@
 # ImTakt — Agent skill (repo reference)
 
-> **Canonical skill:** [imtakt.dev/agent-onboarding/SKILL.md](https://imtakt.dev/agent-onboarding/SKILL.md) · **Harness:** [imtakt.dev/agent-onboarding](https://imtakt.dev/agent-onboarding)
-
-This file is a repo-local reference. Prefer the hosted skill URL for agent installs.
+> **Canonical skill:** [imtakt.dev/agent-onboarding/SKILL.md](https://imtakt.dev/agent-onboarding/SKILL.md) · **Harness:** [HARNESS.md](./HARNESS.md)
 
 ## What ImTakt is
 
-ImTakt is **German transit intelligence for AI agents** — plan journeys, read departure boards, resolve stops, and view live train runs over the full national GTFS network. The harness returns **facts + `intelligence` metadata**; your agent chooses the option. Do not expect ImTakt to auto-pick. See [agent-intelligence.md](./agent-intelligence.md).
+German transit intelligence for AI agents — plan journeys, boards, stops, live trains. The harness returns **facts**; your agent chooses. Prefer **time-first plan → show → follow**.
 
-- **Hosted API:** `https://api.imtakt.dev/v1`
-- **No API key** on the default hosted path
-- **MIT licensed** clients: `@imtakt/mcp`, `@imtakt/sdk`, `@imtakt/cli`
+Envelopes always carry `schema` + `domain` (`transit` live; `logistics` reserved). Same five verbs cover freight/multi-stop later — see [domains.md](./domains.md).
 
-## Install MCP (recommended)
-
-Add to the user's MCP config (Cursor, Claude Desktop, Windsurf):
+## Install MCP
 
 ```json
 {
@@ -27,60 +21,35 @@ Add to the user's MCP config (Cursor, Claude Desktop, Windsurf):
 }
 ```
 
-Restart the MCP client after saving. No `env` block needed for hosted API.
-
 ## Tools
 
 | Tool | Use when |
 | --- | --- |
-| `imtakt_find_station` | User gives a place name or coordinates |
-| `imtakt_plan_journey` | User wants A→B with legs and transfers |
-| `imtakt_view_station` | User wants departures at a station |
-| `imtakt_view_train` | User wants full stop-by-stop stats for a specific train run |
+| `imtakt_find` | Place name or coordinates |
+| `imtakt_plan` | A→B — prefer `arrive` + `view=board` + `fare=d-ticket` |
+| `imtakt_show` | Expand a board `optionId` to full plan |
+| `imtakt_status` | Departures / live at a place |
+| `imtakt_follow` | Train run by `runId` |
 
-## Example user prompts
+## Agent steps (office recipe)
 
-- "Plan Berlin Hbf to München Hbf tomorrow morning."
-- "Next trains from Köln Hbf."
-- "Find stations near Alexanderplatz."
-- "How long from Hamburg to Frankfurt by train?" (use `imtakt_plan_journey` and read `durationMinutes`)
+1. **Board:** `imtakt_plan` with `arrive`, `fare: "d-ticket"`, `nearby: true`, `view: "board"`, `windowMinutes: 120`.
+2. **Pick** using `connectionScore`, `arriveSlackMinutes`, `latest_safe`.
+3. **Expand:** `imtakt_show` with that `optionId`.
+4. Optional: `imtakt_follow` with a leg `runId`.
 
-## Example agent steps
+**Do not** poll `when` every few minutes. Flow: **plan → show → follow**.
 
-1. **Named trip:** one call to `imtakt_plan_journey` with `from` / `to` and required `when`. Read the agent envelope (`schema: imtakt.agent.plan/v1`, all `journeys[]` with `headline` + risk) — you pick for the user.
-2. **Coordinates:** `imtakt_plan_journey` with `{ lat, lng }` objects — API geo-snaps to nearest stops.
-3. **Board:** `imtakt_find_station` if needed, then `imtakt_view_station`.
-4. **Train detail:** read `runId` from a leg or departure, then `imtakt_view_train`.
-
-Full demo: [examples/agent-demo.md](https://github.com/ImTakt/imtakt/blob/main/examples/agent-demo.md)
-
-## SDK (if MCP unavailable)
+## CLI
 
 ```bash
-npm install @imtakt/sdk
+imtakt plan "Augsburg Messe" "Gräfelfing, Am Haag" \
+  --arrive 08:00 --date 2026-07-20 --fare d-ticket --nearby --view board --json
+imtakt show <optionId> --json
 ```
 
-```typescript
-import { createImTakt } from "@imtakt/sdk"
-const imtakt = createImTakt()
-await imtakt.planJourney({ from: "Berlin Hbf", to: "München Hbf", when: new Date().toISOString() })
-```
-
-## Verify API
-
-```bash
-curl -s https://api.imtakt.dev/health
-```
+Env: `IMTAKT_VIEW=board`, `IMTAKT_FARE=d-ticket`, `IMTAKT_WINDOW=120m`.
 
 ## Docs
 
-- Getting started: https://github.com/ImTakt/imtakt/blob/main/docs/getting-started.md
-- MCP: https://github.com/ImTakt/imtakt/blob/main/docs/mcp.md
-- Playground: https://imtakt.dev/try
-
-## Rules for agents
-
-- Prefer MCP tools over scraping external timetable sites.
-- Present times in the user's locale; keep structured JSON for follow-up turns.
-- Do not claim live delays unless the API response includes them.
-- On API errors, suggest https://imtakt.dev/try or retry later — do not invent schedules.
+- [HARNESS.md](./HARNESS.md) · [agent-harness.md](./agent-harness.md) · [cli.md](./cli.md) · [mcp.md](./mcp.md)

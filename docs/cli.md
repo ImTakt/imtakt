@@ -4,7 +4,7 @@ Shell access to ImTakt Server — no login, no API key.
 
 Prefer [`@imtakt/mcp`](./mcp.md) in MCP clients. Use the CLI when an agent runs shell commands.
 
-See [agent-harness.md](./agent-harness.md) for the shared SDK logic behind this CLI.
+See [agent-harness.md](./agent-harness.md) and [HARNESS.md](./HARNESS.md) for the time-first agent contract.
 
 ## Install
 
@@ -15,71 +15,63 @@ curl -fsSL https://imtakt.dev/cli/install.sh | bash
 
 Requires **Node.js 18+**.
 
-## Output (best practice)
+## Output
 
-Pick **one** channel per invocation — JSON for machines/agents, markdown for humans.
-
-| Context | Default stdout | Override |
-| --- | --- | --- |
-| **Terminal (TTY)** | Markdown (DB-style cards) | `--json` or `--format json` |
-| **Piped / script / agent** | Compact agent JSON envelope | `--format md` |
-
-| Stream | Content |
+| Context | Default stdout |
 | --- | --- |
-| **stdout** | Data only (JSON **or** markdown) |
-| **stderr** | Warnings; on failure `{"error","code",...}` |
+| **Terminal (TTY)** | Markdown |
+| **Piped / agent** | Compact agent JSON (`board/v1` or `plan/v1`) |
 
-| Exit | Meaning |
-| --- | --- |
-| `0` | Success |
-| `1` | Usage / bad flags |
-| `2` | API / network |
-| `3` | Ambiguous place (`candidates` in error JSON) |
-
-Flags: `--format json\|md\|auto`, `-o`, `--json`, `--pretty`.  
-Env: `IMTAKT_FORMAT`, `IMTAKT_SERVER_URL`.
-
-Default journey JSON is the agent envelope (`schema: imtakt.agent.plan/v1`, `domain: transit`) with per-option facets. Use `--verbose` only for raw API debug dumps.
+Env: `IMTAKT_FORMAT`, `IMTAKT_SERVER_URL`, `IMTAKT_VIEW=board`, `IMTAKT_FARE=d-ticket`, `IMTAKT_WINDOW=120m`, `IMTAKT_ARRIVE_SLACK=10m`.
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
-| `imtakt find <query>` | Resolve stops by name |
-| `imtakt journey <from> <to>` | Plan a journey (agent harness) |
-| `imtakt live --stop-id <id> \| <place>` | Live departures + `realtime.asOf` |
-| `imtakt train <runId>` | Train run detail |
-| `imtakt analytics` | Instant catalog + use cases |
-| `imtakt analytics path <script>` | Resolve bundled `.py` path |
-| `imtakt analytics use-case <id>` | Recipe for an ICP flow |
+| `imtakt find <place>` | Resolve a place (stop / station) |
+| `imtakt plan <from> <to>` | Time-first options (board or full) |
+| `imtakt show <optionId>` | Expand board option → full plan |
+| `imtakt status <place>` | Live / local observation at a place |
+| `imtakt follow <runId>` | Follow a train run |
+| `imtakt analytics …` | Optional python3 transforms catalog |
 
-## Flags
+**Aliases** (forward + stderr tip): `journey`→`plan`, `journey show`→`show`, `live`→`status`, `train`→`follow`, `commute`→`plan` with office board defaults.
+
+## Time flags
+
+| Flag | Meaning |
+| --- | --- |
+| `--at` / `--when` | Depart after (`now`, `+25m`, `08:00`, ISO) |
+| `--arrive` | Arrive by (MOTIS arriveBy) |
+| `--leave-by` | Latest acceptable departure |
+| `--date YYYY-MM-DD` | Compose with HH:MM Berlin local |
+| `--window 120m` | Search window |
+| `--arrive-slack 10m` | Soft buffer |
+| `--min-connection 5m` | Drop tight transfers |
+
+## Plan flags
 
 | Flag | Description |
 | --- | --- |
-| `--format` / `-o` | `json` \| `md` \| `auto` |
-| `--json` | Shorthand for `--format json` |
-| `--pretty` | Indent JSON |
-| `--verbose` | Raw API JSON (debug) |
-| `--server <url>` | Override API base |
-| `--at <iso>` | Journey departure UTC (default: now) |
-| `--when <iso>` | Live board reference time UTC |
-| `--limit <n>` | find / live counts |
-| `--stop-id <id>` | Live by stop id |
-| `--from-id` / `--to-id` | Skip fuzzy name resolution |
-| `--regio`, `--no-ice` | Exclude ICE/IC/EC |
-| `--confirm-snap` | Fail on low-confidence snap |
+| `--view board\|full` | Thin board vs full cards |
+| `--fare d-ticket\|regio\|any` | Deutschlandticket / regio / all |
+| `--nearby` / `--exact-stop` | Place cluster |
+| `--pack windows\|round-trip\|day-chain` | Multi-anchor packs |
+| `--regio`, `--no-ice` | Alias for `--fare regio` |
 
-## Workflow
+## Time-first workflow (preferred)
 
 ```bash
-imtakt find "Gräfelfing" -o md
-imtakt journey "Gräfelfing, Am Haag" "Augsburg Messe" --regio
-imtakt live "Berlin Hbf" --limit 20
-imtakt journey "A" "B" --json | jq '.journeys[] | {option, headline, riskLevel}'
+imtakt plan "Augsburg Messe" "Gräfelfing, Am Haag" \
+  --arrive 08:00 --date 2026-07-20 \
+  --fare d-ticket --nearby --window 120m --view board --limit 20 --json
+
+imtakt show opt_…. --json
 ```
 
-Optional transforms: `imtakt analytics` then pipe to `python3` — see [agent-python-analytics.md](./agent-python-analytics.md).
+**Commute recipe:** same as above (or set `IMTAKT_VIEW` / `IMTAKT_FARE` / `IMTAKT_WINDOW` / `IMTAKT_ARRIVE_SLACK`). No separate `commute` command.
+
+**Anti-pattern:** looping `--at` every 3–5 minutes. Flow: **plan → show → follow**.
 
 ## Source
 

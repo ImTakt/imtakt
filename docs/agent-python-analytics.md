@@ -28,15 +28,17 @@ Manifest includes `domain: "transit"` and `domainsReserved: ["transit","logistic
 ## Pattern
 
 ```bash
-imtakt journey "A" "B" --format json 2>/dev/null \
+imtakt plan "A" "B" --format json 2>/dev/null \
   | python3 "$(imtakt analytics path delay-summary)"
 ```
 
-### Multi-search
+Prefer server packs for multi-window (`imtakt plan … --pack windows`) before client merge.
+
+### Multi-search (offline / advanced)
 
 ```bash
-imtakt journey "Home" "Office" --at "$T1" --format json 2>/dev/null > /tmp/s1.json
-imtakt journey "Home" "Office" --at "$T2" --format json 2>/dev/null > /tmp/s2.json
+imtakt plan "Home" "Office" --at "$T1" --format json 2>/dev/null > /tmp/s1.json
+imtakt plan "Home" "Office" --at "$T2" --format json 2>/dev/null > /tmp/s2.json
 jq -s '{searches:[
   {label:"morning", when:"'"$T1"'", result:.[0]},
   {label:"evening", when:"'"$T2"'", result:.[1]}

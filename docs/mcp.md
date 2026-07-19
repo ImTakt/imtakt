@@ -67,43 +67,55 @@ Same JSON shape under the client’s `mcpServers` key. See your client’s MCP d
 
 ## Tools
 
+Five verbs (same as CLI / harness). Flow: **plan → show → follow**.
+
 | Tool | Description | API |
 | --- | --- | --- |
-| `imtakt_find_station` | Resolve place name or coordinates → stops | `POST /v1/stops/find` |
-| `imtakt_plan_journey` | Plan A→B with legs and transfers | `POST /v1/journeys/plan` |
-| `imtakt_view_station` | Departure board at a stop | `GET /v1/stops/:id/board` |
-| `imtakt_view_train` | Live full stats for a train run | `GET /v1/trains/:runId` |
+| `imtakt_find` | Resolve place name or coordinates → stops | `POST /v1/stops/find` |
+| `imtakt_plan` | Time-first board or full A→B plan | `POST /v1/journeys/plan` |
+| `imtakt_show` | Expand board `optionId` → full plan | `GET /v1/journeys/options/:id` |
+| `imtakt_status` | Live departures at a place | `GET /v1/stops/:id/live` |
+| `imtakt_follow` | Follow a train run | `GET /v1/trains/:runId` |
+
+Deprecated aliases (same handlers): `imtakt_find_station`, `imtakt_plan_journey`, `imtakt_journey_show`, `imtakt_station_live`, `imtakt_view_train`, `imtakt_view_station`.
 
 ### Arguments
 
-**`imtakt_find_station`**
+**`imtakt_find`**
 
 - `place` — station or place name (e.g. `"Berlin Hbf"`)
 - `lat`, `lng` — coordinates (use instead of `place`)
 
-**`imtakt_plan_journey`**
+**`imtakt_plan`**
 
 - `from`, `to` — string place name, `{ lat, lng }`, or `{ stopId }`
-- `when` — required ISO 8601 departure time
+- `when` / `arrive` / `leaveBy` — time intents (Berlin local or ISO)
+- `view` — `board` (default for agents) or `full`
 
-**`imtakt_view_station`**
+**`imtakt_show`**
+
+- `optionId` — from board response
+
+**`imtakt_status`**
 
 - `station` — name, coordinates, or stop ID
 
-**`imtakt_view_train`**
+**`imtakt_follow`**
 
-- `runId` — stable train run id from a journey leg or board departure
+- `runId` — stable train run id from a plan leg or board departure
 
 ## Example prompts
 
 ```
-Use imtakt_find_station to find stops matching "Dom/Hbf Köln".
+Use imtakt_find to find stops matching "Dom/Hbf Köln".
 
-Use imtakt_plan_journey from Berlin Alexanderplatz to Berlin Hbf at 2026-07-03T09:00:00+02:00.
+Use imtakt_plan from Berlin Alexanderplatz to Berlin Hbf with arrive 09:00 and view=board.
 
-Use imtakt_view_station for München Hbf and show the next five departures.
+Use imtakt_show with an optionId from the board for full legs.
 
-Use imtakt_view_train with a runId from a board departure to show the full stop list.
+Use imtakt_status for München Hbf and show the next five departures.
+
+Use imtakt_follow with a runId from an expanded leg to show the full stop list.
 ```
 
 ## Troubleshooting
