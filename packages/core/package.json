@@ -1,6 +1,6 @@
 {
   "name": "@imtakt/core",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Shared schemas and constants for ImTakt transit intelligence clients",
   "license": "MIT",
   "homepage": "https://imtakt.dev",

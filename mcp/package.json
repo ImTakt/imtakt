@@ -1,7 +1,7 @@
 {
   "name": "@imtakt/mcp",
-  "version": "0.3.1",
-  "description": "MCP server — five tools for German transit intelligence (resolve, plan, board, live, train run)",
+  "version": "0.3.2",
+  "description": "MCP server — five verbs for German transit (find, plan, show, status, follow)",
   "license": "MIT",
   "homepage": "https://imtakt.dev/mcp",
   "keywords": [
@@ -41,8 +41,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@imtakt/core": "^0.3.1",
-    "@imtakt/sdk": "^0.3.1",
+    "@imtakt/core": "^0.3.2",
+    "@imtakt/sdk": "^0.3.2",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "zod": "^3.24.2"
   },
