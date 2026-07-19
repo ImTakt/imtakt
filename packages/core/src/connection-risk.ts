@@ -250,3 +250,22 @@ export function assessJourneyRisk(
     },
   }
 }
+
+/**
+ * Single 0–100 ranking score for agents (higher = better).
+ * Reconciles riskScore (worse↑) with transfer slack into one board field.
+ */
+export function connectionScoreFromRisk(assessment: JourneyRiskAssessment): number {
+  const worstSlack = assessment.connections.reduce(
+    (min, c) => Math.min(min, c.slackMin),
+    Number.POSITIVE_INFINITY,
+  )
+  const slackPenalty =
+    Number.isFinite(worstSlack) && worstSlack < 0
+      ? Math.min(40, Math.abs(worstSlack) * 5)
+      : Number.isFinite(worstSlack) && worstSlack < 5
+        ? (5 - worstSlack) * 4
+        : 0
+  const raw = 100 - Math.min(100, assessment.riskScore * 0.5 + slackPenalty)
+  return Math.max(0, Math.min(100, Math.round(raw)))
+}
