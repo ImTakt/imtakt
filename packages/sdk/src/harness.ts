@@ -1,34 +1,48 @@
 import {
+  BOARD_SCHEMA,
+  assertLiveDomain,
+  compactBoard,
   compactFind,
   compactLive,
   compactPlanTrip,
   compactTrain,
   dedupeWarnings,
   filterJourneys,
+  formatBoardMarkdown,
   formatCompactPlanMarkdown,
   formatMarkdown,
   formatSnapWarning,
+  getDomainProfile,
   PLAN_SCHEMA,
   hasDistantAlternatives,
   isAmbiguous,
   isAmbiguousPlaceErrorBody,
+  normalizeFormatKind,
   pickBestMatch,
   rankJourneys,
   cancelledLegWarnings,
   tightTransferWarnings,
   needsDisambiguation,
+  parseDurationMinutes,
+  resolveWhen,
   snapWarningMessage,
   SNAP_FAIL_THRESHOLD,
   SCHEDULE_ONLY_WARNING,
+  type CompactBoard,
   type CompactPlanTrip,
   type CompactTrain,
+  type DomainProfile,
+  type FareProfile,
   type FormatKind,
   type FormatVerbosity,
   type Journey,
   type JourneyPreferences,
+  type JourneyView,
   type PlaceRef,
   type PlanIntelligence,
+  type PlanJourneyRequest,
   type PlanJourneyResponse,
+  type PlanningDomain,
   type PresentationMode,
   type RankedJourney,
   type RealtimeSnapshot,
@@ -46,6 +60,21 @@ export type TripPreferences = {
   maxTransfers?: number
   maxResults?: number
   timezone?: string
+  fare?: FareProfile
+  nearby?: boolean
+  view?: JourneyView
+  windowMinutes?: number
+  arriveSlackMinutes?: number
+  departSlackMinutes?: number
+  minConnectionMinutes?: number
+}
+
+/**
+ * Harness construction options.
+ * `domain` selects the planning domain (default transit). Reserved domains throw.
+ */
+export type HarnessOptions = TripPreferences & {
+  domain?: PlanningDomain
 }
 
 export type ResolvedPlace = {
@@ -71,7 +100,7 @@ export type PlanTripResolvedSnap = {
  * Prefer `agent` (compact envelope) for decisions and tool I/O.
  * Raw `journeys` / API fields remain for drill-down and `--verbose`.
  */
-export type PlanTripResult = PlanJourneyResponse & {
+export type PlanResult = PlanJourneyResponse & {
   /** Always set — synthesized from legs when the API omits the snapshot. */
   realtime: RealtimeSnapshot
   labels: RankedJourney[]
@@ -88,9 +117,35 @@ export type PlanTripResult = PlanJourneyResponse & {
   intelligence: PlanIntelligence
   /**
    * Compact agent envelope (`imtakt.agent.plan/v1`) — JSON primary for agents.
-   * Same object returned by `format(result, "journey").payload`.
+   * Same object returned by `format(result, "plan").payload`.
    */
-  agent: CompactPlanTrip
+  agent: CompactPlanTrip | CompactBoard
+  /** True when agent is a thin board envelope. */
+  view: JourneyView
+}
+
+/** @deprecated Use PlanResult */
+export type PlanTripResult = PlanResult
+
+export type StatusResult = StationLiveResponse & { resolved: ResolvedPlace }
+export type FollowResult = ViewTrainResponse & { agent: CompactTrain }
+
+export type PlanArgs = {
+  from: PlaceRef
+  to: PlaceRef
+  when?: string
+  arrive?: string
+  leaveBy?: string
+  departAfterEvent?: string
+  departAfter?: string
+  date?: string
+  preferences?: TripPreferences
+  pack?: PlanJourneyRequest["pack"]
+  windows?: string
+  returnAfter?: string
+  dwellMinutes?: number
+  stops?: string
+  pageCursor?: string
 }
 
 export type FormatOutput = {
@@ -134,12 +189,67 @@ function placeLabel(ref: PlaceRef): string {
   return `${ref.lat},${ref.lng}`
 }
 
+/** Minimal intelligence stub — board agents use connectionScore on rows, not this blob. */
+const BOARD_INTELLIGENCE: PlanIntelligence = {
+  version: 1,
+  decisionBoundary: "agent",
+  layers: [
+    {
+      id: "schedule_facts",
+      present: true,
+      source: "deterministic",
+      note: "board connectionScore",
+    },
+  ],
+  riskModel: {
+    id: "imtakt.connection_slack.v1",
+    kind: "deterministic_heuristic",
+    version: 1,
+    inputsUsed: ["board_connection_score"],
+    inputsUnavailable: [],
+  },
+  comparison: { lowRisk: [], highRisk: [] },
+}
+
 function toApiPreferences(prefs: TripPreferences): JourneyPreferences | undefined {
   const out: JourneyPreferences = {}
-  if (prefs.excludeLongDistance) out.excludeLineClasses = ["long_distance"]
+  if (prefs.excludeLongDistance || prefs.fare === "d-ticket" || prefs.fare === "regio") {
+    out.excludeLineClasses = ["long_distance"]
+  }
   if (prefs.maxTransfers != null) out.maxTransfers = prefs.maxTransfers
   if (prefs.maxResults != null) out.maxResults = prefs.maxResults
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+function envView(): JourneyView {
+  const v = process.env.IMTAKT_VIEW?.trim().toLowerCase()
+  return v === "board" ? "board" : v === "full" ? "full" : "full"
+}
+
+function envFare(): FareProfile | undefined {
+  const f = process.env.IMTAKT_FARE?.trim().toLowerCase()
+  if (f === "d-ticket" || f === "regio" || f === "any") return f
+  return undefined
+}
+
+function envWindowMinutes(): number | undefined {
+  const w = process.env.IMTAKT_WINDOW?.trim()
+  if (!w) return undefined
+  try {
+    return parseDurationMinutes(w)
+  } catch {
+    return undefined
+  }
+}
+
+function envArriveSlack(): number | undefined {
+  const s = process.env.IMTAKT_ARRIVE_SLACK?.trim()
+  if (!s) return undefined
+  try {
+    return parseDurationMinutes(s)
+  } catch {
+    return undefined
+  }
 }
 
 function snapFromResolved(r: ResolvedPlace): PlanTripResolvedSnap {
@@ -177,45 +287,64 @@ export function normalizeRealtime(
   }
 }
 
-function isPlanTripResult(data: unknown): data is PlanTripResult {
-  return (
-    typeof data === "object" &&
-    data != null &&
-    "agent" in data &&
-    "intelligence" in data &&
-    "journeys" in data &&
-    (data as PlanTripResult).agent?.schema === PLAN_SCHEMA
-  )
+function isPlanResult(data: unknown): data is PlanResult {
+  if (typeof data !== "object" || data == null) return false
+  if (!("agent" in data) || !("journeys" in data)) return false
+  const schema = (data as PlanResult).agent?.schema
+  return schema === PLAN_SCHEMA || schema === BOARD_SCHEMA
 }
 
 export type AgentHarness = {
+  /** Active planning domain (transit live; logistics reserved). */
+  domain: PlanningDomain
+  /** Discoverable capabilities for agents / multi-domain tooling. */
+  profile: DomainProfile
+  /** Resolve a place (stop today; hub/depot later). */
+  find: (
+    ref: PlaceRef,
+    opts?: { minConfidence?: number; field?: "from" | "to" },
+  ) => Promise<ResolvedPlace>
+  /** Time-first plan (board or full). */
+  plan: (args: PlanArgs) => Promise<PlanResult | { pack: unknown }>
+  /** Expand one board optionId. */
+  show: (optionId: string) => Promise<PlanResult>
+  /** Live observation at a place. */
+  status: (
+    ref: PlaceRef,
+    opts?: { limit?: number; when?: string },
+  ) => Promise<StatusResult>
+  /** Follow a run/entity (train runId today). */
+  follow: (id: string) => Promise<FollowResult>
+  format: (data: unknown, kind: FormatKind, opts?: HarnessFormatOptions) => FormatOutput
+  client: ImTaktClient
+  /** @deprecated Use find */
   resolvePlace: (
     ref: PlaceRef,
     opts?: { minConfidence?: number; field?: "from" | "to" },
   ) => Promise<ResolvedPlace>
-  planTrip: (args: {
-    from: PlaceRef
-    to: PlaceRef
-    when?: string
-    preferences?: TripPreferences
-  }) => Promise<PlanTripResult>
+  /** @deprecated Use plan */
+  planTrip: (args: PlanArgs) => Promise<PlanResult | { pack: unknown }>
+  /** @deprecated Use show */
+  showOption: (optionId: string) => Promise<PlanResult>
+  /** @deprecated Use status */
   stationStatus: (
     ref: PlaceRef,
     opts?: { limit?: number; when?: string },
-  ) => Promise<StationLiveResponse & { resolved: ResolvedPlace }>
-  /** Train drill-down — same compact path as `format(..., "train")`. */
-  viewTrain: (runId: string) => Promise<ViewTrainResponse & { agent: CompactTrain }>
-  format: (data: unknown, kind: FormatKind, opts?: HarnessFormatOptions) => FormatOutput
-  client: ImTaktClient
+  ) => Promise<StatusResult>
+  /** @deprecated Use follow */
+  viewTrain: (id: string) => Promise<FollowResult>
 }
 
 export function createAgentHarness(
   client: ImTaktClient,
-  defaults: TripPreferences = {},
+  defaults: HarnessOptions = {},
 ): AgentHarness {
-  const defaultTz = defaults.timezone ?? "Europe/Berlin"
+  const domain: PlanningDomain = defaults.domain ?? "transit"
+  assertLiveDomain(domain)
+  const profile = getDomainProfile(domain)
+  const defaultTz = defaults.timezone ?? profile.defaultTimeZone
 
-  async function resolvePlace(
+  async function find(
     ref: PlaceRef,
     opts?: { minConfidence?: number; field?: "from" | "to" },
   ): Promise<ResolvedPlace> {
@@ -286,38 +415,96 @@ export function createAgentHarness(
     return ref
   }
 
-  async function planTrip(args: {
-    from: PlaceRef
-    to: PlaceRef
-    when?: string
-    preferences?: TripPreferences
-  }): Promise<PlanTripResult> {
-    const prefs = { ...defaults, ...args.preferences }
+  async function plan(args: PlanArgs): Promise<PlanResult | { pack: unknown }> {
+    const prefs = {
+      ...defaults,
+      fare: envFare() ?? defaults.fare,
+      view: defaults.view ?? envView(),
+      windowMinutes: defaults.windowMinutes ?? envWindowMinutes(),
+      arriveSlackMinutes: defaults.arriveSlackMinutes ?? envArriveSlack(),
+      ...args.preferences,
+    }
     const warnings: string[] = []
+    const view: JourneyView = prefs.view ?? "full"
+    const excludeLd =
+      !!prefs.excludeLongDistance || prefs.fare === "d-ticket" || prefs.fare === "regio"
+
+    if (args.pack) {
+      const packReq: PlanJourneyRequest = {
+        from: args.from,
+        to: args.to,
+        pack: args.pack,
+        windows: args.windows,
+        stops: args.stops,
+        returnAfter: args.returnAfter
+          ? resolveWhen(args.returnAfter, { date: args.date })
+          : undefined,
+        dwellMinutes: args.dwellMinutes,
+        fare: prefs.fare,
+        nearby: prefs.nearby,
+        view,
+        windowMinutes: prefs.windowMinutes,
+        when: args.when ? resolveWhen(args.when, { date: args.date }) : undefined,
+        arrive: args.arrive ? resolveWhen(args.arrive, { date: args.date }) : undefined,
+        preferences: toApiPreferences(prefs),
+      }
+      const pack = await client.planJourneyPack(packReq)
+      return { pack }
+    }
 
     const minConfidence = prefs.minSnapConfidence ?? SNAP_FAIL_THRESHOLD
     const [fromResolved, toResolved] = await Promise.all([
       isStopIdRef(args.from)
         ? Promise.resolve(undefined)
-        : resolvePlace(args.from, { minConfidence, field: "from" }),
+        : find(args.from, { minConfidence, field: "from" }),
       isStopIdRef(args.to)
         ? Promise.resolve(undefined)
-        : resolvePlace(args.to, { minConfidence, field: "to" }),
+        : find(args.to, { minConfidence, field: "to" }),
     ])
     if (fromResolved?.warning) warnings.push(fromResolved.warning)
     if (toResolved?.warning) warnings.push(toResolved.warning)
 
-    const when = args.when ?? new Date().toISOString()
-    const apiPrefs = toApiPreferences(prefs)
+    const date = args.date
+    const when = args.when
+      ? resolveWhen(args.when, { date })
+      : args.arrive || args.leaveBy || args.departAfterEvent || args.departAfter
+        ? undefined
+        : new Date().toISOString()
+    const arrive = args.arrive ? resolveWhen(args.arrive, { date }) : undefined
+    const leaveBy = args.leaveBy ? resolveWhen(args.leaveBy, { date }) : undefined
+    const departAfterEvent = args.departAfterEvent
+      ? resolveWhen(args.departAfterEvent, { date })
+      : undefined
+    const departAfter = args.departAfter ? resolveWhen(args.departAfter, { date }) : undefined
+
+    const apiPrefs = toApiPreferences({
+      ...prefs,
+      maxResults: prefs.maxResults ?? (view === "board" ? 10 : undefined),
+      excludeLongDistance: excludeLd,
+    })
+
+    const req: PlanJourneyRequest = {
+      from: resolveRefForPlan(args.from, fromResolved),
+      to: resolveRefForPlan(args.to, toResolved),
+      when,
+      arrive,
+      leaveBy,
+      departAfterEvent,
+      departAfter,
+      windowMinutes: prefs.windowMinutes ?? (view === "board" ? 120 : undefined),
+      arriveSlackMinutes: prefs.arriveSlackMinutes,
+      departSlackMinutes: prefs.departSlackMinutes,
+      minConnectionMinutes: prefs.minConnectionMinutes,
+      nearby: prefs.nearby,
+      fare: prefs.fare,
+      view,
+      pageCursor: args.pageCursor,
+      ...(apiPrefs ? { preferences: apiPrefs } : {}),
+    }
 
     let response: PlanJourneyResponse
     try {
-      response = await client.planJourney({
-        from: resolveRefForPlan(args.from, fromResolved),
-        to: resolveRefForPlan(args.to, toResolved),
-        when,
-        ...(apiPrefs ? { preferences: apiPrefs } : {}),
-      })
+      response = await client.planJourney(req)
     } catch (err) {
       if (err instanceof ImTaktApiError && err.status === 422 && isAmbiguousPlaceErrorBody(err.body)) {
         const body = err.body
@@ -329,7 +516,7 @@ export function createAgentHarness(
     let journeys = response.journeys
     const serverFiltered = response.preferencesApplied?.excludeLineClasses === true
 
-    if (prefs.excludeLongDistance && !serverFiltered) {
+    if (excludeLd && !serverFiltered) {
       journeys = filterJourneys(journeys, { excludeLongDistance: true })
     }
     if (prefs.maxTransfers != null) {
@@ -340,23 +527,34 @@ export function createAgentHarness(
     }
 
     if (journeys.length === 0) {
-      warnings.push("No journeys match your preferences (try without --regio)")
+      warnings.push(
+        response.warnings?.[0] ??
+          "No journeys match your preferences (try without --fare d-ticket / --regio)",
+      )
+    }
+    if (response.warnings?.length) {
+      warnings.push(...response.warnings.slice(0, 3))
     }
 
-    for (const j of journeys) {
-      warnings.push(...tightTransferWarnings(j))
-      warnings.push(...cancelledLegWarnings(j))
+    // Full view only: per-leg warning fan-out is expensive and belongs on expand, not board scan
+    if (view === "full") {
+      for (const j of journeys) {
+        warnings.push(...tightTransferWarnings(j))
+        warnings.push(...cancelledLegWarnings(j))
+      }
     }
 
-    const realtime = normalizeRealtime(response.realtime, journeys, when)
-    if (!realtime.available) {
+    const anchor =
+      arrive ?? leaveBy ?? departAfterEvent ?? departAfter ?? when ?? new Date().toISOString()
+    const realtime = normalizeRealtime(response.realtime, journeys, anchor)
+    if (view === "full" && !realtime.available) {
       warnings.push(SCHEDULE_ONLY_WARNING)
     }
 
-    const labels = rankJourneys(journeys)
+    const labels = view === "full" ? rankJourneys(journeys) : []
     const dedupedWarnings = dedupeWarnings(warnings)
 
-    const resolved: PlanTripResult["resolved"] = {}
+    const resolved: PlanResult["resolved"] = {}
     if (fromResolved) resolved.from = snapFromResolved(fromResolved)
     if (toResolved) resolved.to = snapFromResolved(toResolved)
     const resolvedOut = Object.keys(resolved).length > 0 ? resolved : undefined
@@ -395,21 +593,63 @@ export function createAgentHarness(
       }
     }
 
-    // Single compact build — agent envelope is the harness product.
-    const agent = compactPlanTrip({
-      ...response,
-      meta,
-      journeys,
-      realtime,
-      labels,
-      warnings: dedupedWarnings,
-      resolved: resolvedOut,
-    })
+    const intent =
+      response.time?.intent ??
+      (arrive ? "arriveBy" : leaveBy ? "leaveBy" : departAfterEvent ? "eventEnd" : "departAfter")
+
+    let agent: CompactPlanTrip | CompactBoard
+    let intelligence: PlanIntelligence
+
+    if (view === "board") {
+      agent = compactBoard({
+        data: {
+          ...response,
+          meta,
+          journeys,
+          realtime,
+          warnings: dedupedWarnings,
+          resolved: resolvedOut,
+        },
+        time: {
+          intent,
+          anchorUtc: response.time?.anchorUtc ?? anchor,
+          windowMinutes: response.time?.windowMinutes ?? prefs.windowMinutes,
+          arriveSlackMinutes: prefs.arriveSlackMinutes,
+          leaveByUtc: leaveBy,
+        },
+        fare: prefs.fare,
+        excludeLongDistance: excludeLd,
+        limit: prefs.maxResults ?? 20,
+        cluster: response.cluster,
+        alternatives: response.alternatives,
+        minConnectionMinutes: prefs.minConnectionMinutes,
+        domain,
+      })
+      // Board omits intelligence from the agent envelope; keep a tiny stub on the result type
+      intelligence = BOARD_INTELLIGENCE
+    } else {
+      const full = compactPlanTrip(
+        {
+          ...response,
+          meta,
+          journeys,
+          realtime,
+          labels,
+          warnings: dedupedWarnings,
+          resolved: resolvedOut,
+        },
+        { domain },
+      )
+      agent = full
+      intelligence = full.intelligence
+    }
 
     return {
       ...response,
       meta,
-      journeys,
+      // Board path: drop legs from the result so accidental full dumps stay cheap.
+      // Expand via show(optionId). --verbose still gets agent + meta.
+      journeys: view === "board" ? [] : journeys,
       realtime,
       labels,
       warnings: dedupedWarnings,
@@ -418,44 +658,78 @@ export function createAgentHarness(
         serverFiltered,
       },
       resolved: resolvedOut,
-      intelligence: agent.intelligence,
+      intelligence,
       agent,
+      view,
     }
   }
 
-  async function stationStatus(
+  async function show(optionId: string): Promise<PlanResult> {
+    const response = await client.expandJourney(optionId)
+    const journeys = response.journeys
+    const labels = rankJourneys(journeys)
+    const realtime = normalizeRealtime(
+      response.realtime,
+      journeys,
+      new Date().toISOString(),
+    )
+    const agent = compactPlanTrip(
+      {
+        ...response,
+        journeys,
+        realtime,
+        labels,
+        warnings: [],
+      },
+      { domain },
+    )
+    return {
+      ...response,
+      journeys,
+      realtime,
+      labels,
+      warnings: [],
+      preferencesApplied: { serverFiltered: false },
+      intelligence: agent.intelligence,
+      agent,
+      view: "full",
+    }
+  }
+
+  async function status(
     ref: PlaceRef,
     opts?: { limit?: number; when?: string },
-  ): Promise<StationLiveResponse & { resolved: ResolvedPlace }> {
-    const resolved = await resolvePlace(ref, { field: "from" })
+  ): Promise<StatusResult> {
+    const resolved = await find(ref, { field: "from" })
     const live = await client.stationLive(resolved.stopId, opts)
     return { ...live, resolved }
   }
 
-  async function viewTrain(runId: string): Promise<ViewTrainResponse & { agent: CompactTrain }> {
-    const data = await client.viewTrain(runId)
-    return { ...data, agent: compactTrain(data) }
+  async function follow(id: string): Promise<FollowResult> {
+    const data = await client.viewTrain(id)
+    return { ...data, agent: compactTrain(data, { domain }) }
   }
 
   function compactJsonPayload(data: unknown, kind: FormatKind): unknown {
-    switch (kind) {
+    switch (normalizeFormatKind(kind)) {
       case "find":
-        return compactFind(data as import("@imtakt/core").FindStopsResponse)
-      case "journey":
-        if (isPlanTripResult(data)) return data.agent
+        return compactFind(data as import("@imtakt/core").FindStopsResponse, { domain })
+      case "plan":
+        if (isPlanResult(data)) return data.agent
         return compactPlanTrip(
           data as PlanJourneyResponse & {
             labels?: RankedJourney[]
             warnings?: string[]
-            resolved?: PlanTripResult["resolved"]
+            resolved?: PlanResult["resolved"]
           },
+          { domain },
         )
-      case "live": {
+      case "status": {
         const live = data as StationLiveResponse & { resolved?: ResolvedPlace }
         const { resolved: _r, ...liveOnly } = live
-        return compactLive(liveOnly)
+        return compactLive(liveOnly, { domain })
       }
-      case "train": {
+      case "follow": {
         if (
           typeof data === "object" &&
           data != null &&
@@ -464,7 +738,7 @@ export function createAgentHarness(
         ) {
           return (data as { agent: CompactTrain }).agent
         }
-        return compactTrain(data as ViewTrainResponse)
+        return compactTrain(data as ViewTrainResponse, { domain })
       }
       default:
         return data
@@ -479,24 +753,25 @@ export function createAgentHarness(
     const verbosity = opts?.verbosity ?? "compact"
     const presentation: PresentationMode = opts?.presentation ?? "json"
     const tz = opts?.timezone ?? defaultTz
+    const nk = normalizeFormatKind(kind)
 
-    const journeyData = isPlanTripResult(data) ? data : (data as PlanTripResult)
+    const planData = isPlanResult(data) ? data : (data as PlanResult)
     const warnings = dedupeWarnings(
-      opts?.warnings ?? (kind === "journey" ? journeyData.warnings : undefined) ?? [],
+      opts?.warnings ?? (nk === "plan" ? planData.warnings : undefined) ?? [],
     )
-    const labels = opts?.labels ?? (kind === "journey" ? journeyData.labels : undefined)
+    const labels = opts?.labels ?? (nk === "plan" ? planData.labels : undefined)
 
-    // PlanTripResult already carries the agent envelope — reuse it (single source).
+    // PlanResult already carries the agent envelope — reuse it (single source).
     let compactPayload: unknown
-    if (kind === "journey" && isPlanTripResult(data)) {
+    if (nk === "plan" && isPlanResult(data)) {
       compactPayload = data.agent
-    } else if (kind === "journey") {
+    } else if (nk === "plan") {
       compactPayload = compactPlanTrip({
         ...(data as PlanJourneyResponse),
         labels,
         warnings,
-        resolved: journeyData.resolved,
-        realtime: journeyData.realtime ?? (data as PlanJourneyResponse).realtime,
+        resolved: planData.resolved,
+        realtime: planData.realtime ?? (data as PlanJourneyResponse).realtime,
       })
     } else {
       compactPayload = compactJsonPayload(data, kind)
@@ -506,7 +781,14 @@ export function createAgentHarness(
 
     let markdown: string
     if (
-      kind === "journey" &&
+      nk === "plan" &&
+      compactPayload &&
+      typeof compactPayload === "object" &&
+      (compactPayload as CompactBoard).schema === BOARD_SCHEMA
+    ) {
+      markdown = formatBoardMarkdown(compactPayload as CompactBoard)
+    } else if (
+      nk === "plan" &&
       compactPayload &&
       typeof compactPayload === "object" &&
       (compactPayload as CompactPlanTrip).schema === PLAN_SCHEMA
@@ -534,11 +816,19 @@ export function createAgentHarness(
   }
 
   return {
-    resolvePlace,
-    planTrip,
-    stationStatus,
-    viewTrain,
+    domain,
+    profile,
+    find,
+    plan,
+    show,
+    status,
+    follow,
     format,
     client,
+    resolvePlace: find,
+    planTrip: plan,
+    showOption: show,
+    stationStatus: status,
+    viewTrain: follow,
   }
 }
