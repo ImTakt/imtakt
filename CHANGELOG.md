@@ -1,5 +1,34 @@
 # Changelog — @imtakt/*
 
+## 0.3.2 — 2026-07-19
+
+**Clean five-verb surface** — shared across CLI, MCP, and SDK (transit live; logistics reserved).
+
+### @imtakt/core
+
+- Format kinds: `plan` / `status` / `follow` (aliases: `journey` / `live` / `train`)
+- Board markdown expand tip → `imtakt show <optionId>`
+- Domain profiles unchanged (logistics reserved on same verb map)
+
+### @imtakt/sdk
+
+- Harness verbs: `find` / `plan` / `show` / `status` / `follow`
+- Deprecated aliases (one minor): `resolvePlace`, `planTrip`, `showOption`, `stationStatus`, `viewTrain`
+- Types: `PlanResult`, `PlanArgs`, `StatusResult`, `FollowResult` (`PlanTripResult` alias kept)
+- Board default `maxResults` clamped to 10 (hosted API)
+
+### @imtakt/cli
+
+- Primary commands: `find` · `plan` · `show` · `status` · `follow` · `analytics`
+- Aliases (stderr tip + forward): `journey`→`plan`, `journey show`→`show`, `live`→`status`, `train`→`follow`, `commute`→`plan` with office board defaults
+- Commute is a recipe on `plan` / env (`IMTAKT_VIEW`, `IMTAKT_FARE`, `IMTAKT_WINDOW`, `IMTAKT_ARRIVE_SLACK`), not a first-class command
+
+### @imtakt/mcp
+
+- Primary tools: `imtakt_find` / `imtakt_plan` / `imtakt_show` / `imtakt_status` / `imtakt_follow`
+- Deprecated tool aliases kept briefly (same handlers)
+- Prompts teach **plan → show → follow** (no poll loops)
+
 ## 0.3.1 — 2026-07-15
 
 **Harness product = `trip.agent` envelope; CLI Spec output; honest risk.**

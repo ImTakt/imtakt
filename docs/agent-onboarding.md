@@ -11,7 +11,7 @@
    ```bash
    imtakt --version
    imtakt find "Berlin Hbf"
-   imtakt journey "Berlin Hbf" "München Hbf"
+   imtakt plan "Berlin Hbf" "München Hbf" --view board --json
    ```
 3. *(Optional)* Open [agent-onboarding](https://imtakt.dev/agent-onboarding) → Editor section for Cursor / Claude / Codex
 
@@ -55,10 +55,11 @@ No `env` block for hosted API. Details: [mcp.md](./mcp.md)
 
 | Tool | Use when |
 | --- | --- |
-| `imtakt_find_station` | Place name or coordinates |
-| `imtakt_plan_journey` | A→B with legs and transfers |
-| `imtakt_view_station` | Departures at a station |
-| `imtakt_view_train` | Live full stats for a train run |
+| `imtakt_find` | Place name or coordinates |
+| `imtakt_plan` | A→B — prefer `arrive` + `view=board` |
+| `imtakt_show` | Expand board `optionId` |
+| `imtakt_status` | Departures at a station |
+| `imtakt_follow` | Follow a train run |
 
 ## Links
 

@@ -66,8 +66,8 @@ Import `ML_POLICY` from `@imtakt/core` for the shared contract; it is intentiona
 Compact JSON is a DB-style connection list: `trip` + `journeys[].headline` (local times, Umstiege, products) plus risk facets. Prefer `headline` / `departLocal` in user-facing text; keep ISO / `runId` for tools.
 
 ```typescript
-const planned = await harness.planTrip({ from: "Berlin Hbf", to: "München Hbf" })
-const { trip, journeys, intelligence } = harness.format(planned, "journey").payload as {
+const planned = await harness.plan({ from: "Berlin Hbf", to: "München Hbf" })
+const { trip, journeys, intelligence } = harness.format(planned, "plan").payload as {
   trip: { from: { name: string }; to: { name: string }; realtime: string }
   journeys: Array<{
     option: number

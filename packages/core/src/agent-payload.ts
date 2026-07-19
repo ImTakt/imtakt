@@ -330,7 +330,9 @@ export function compactPlanTrip(
       to?: { requested: string; stopId: string; stopName: string; confidence: number }
     }
   },
+  opts?: { domain?: PlanningDomain },
 ): CompactPlanTrip {
+  const domain = opts?.domain ?? "transit"
   const realtimeAvailable =
     data.realtime?.available === true || data.journeys.some(journeyHasRealtime)
   const useRealtimeDelays = realtimeAvailable
@@ -366,7 +368,7 @@ export function compactPlanTrip(
 
   const out: CompactPlanTrip = {
     schema: PLAN_SCHEMA,
-    domain: "transit",
+    domain,
     trip: buildTripHeader(data, realtimeAvailable),
     journeys,
     intelligence: buildPlanIntelligence({
@@ -428,10 +430,13 @@ export function compactPlanTrip(
   return out
 }
 
-export function compactFind(data: FindStopsResponse) {
+export function compactFind(
+  data: FindStopsResponse,
+  opts?: { domain?: PlanningDomain },
+) {
   return {
     schema: FIND_SCHEMA,
-    domain: "transit" as const,
+    domain: (opts?.domain ?? "transit") as PlanningDomain,
     matches: data.matches.map((m) => ({
       id: m.stopId ?? m.id,
       name: m.name,
@@ -442,10 +447,13 @@ export function compactFind(data: FindStopsResponse) {
   }
 }
 
-export function compactLive(data: StationLiveResponse) {
+export function compactLive(
+  data: StationLiveResponse,
+  opts?: { domain?: PlanningDomain },
+) {
   return {
     schema: LIVE_SCHEMA,
-    domain: "transit" as const,
+    domain: (opts?.domain ?? "transit") as PlanningDomain,
     station: data.station.name,
     stopId: data.station.id,
     timezone: AGENT_TZ,
@@ -482,8 +490,12 @@ function compactTrainStop(obs: ViewTrainResponse["stops"][number]): CompactTrain
 }
 
 /** Agent-optimized train run — windowed stops around current progress. */
-export function compactTrain(data: ViewTrainResponse, opts?: { window?: number }): CompactTrain {
+export function compactTrain(
+  data: ViewTrainResponse,
+  opts?: { window?: number; domain?: PlanningDomain },
+): CompactTrain {
   const window = opts?.window ?? 2
+  const domain = opts?.domain ?? "transit"
   const current = data.progress.currentStopIndex
   const all = data.stops.map(compactTrainStop)
   let stops = all
@@ -494,7 +506,7 @@ export function compactTrain(data: ViewTrainResponse, opts?: { window?: number }
   }
   return {
     schema: TRAIN_SCHEMA,
-    domain: "transit" as const,
+    domain,
     runId: data.runId,
     line: data.line.name,
     direction: data.direction,

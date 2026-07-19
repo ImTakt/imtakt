@@ -72,10 +72,11 @@ Feed freshness metadata (`syncedAt`, `stopCount`, `stale`).
 
 | HTTP | MCP tool |
 | --- | --- |
-| `POST /v1/stops/find` | `imtakt_find_station` |
-| `POST /v1/journeys/plan` | `imtakt_plan_journey` |
-| `GET /v1/stops/:id/board` | `imtakt_view_station` |
-| `GET /v1/trains/:runId` | `imtakt_view_train` |
+| `POST /v1/stops/find` | `imtakt_find` |
+| `POST /v1/journeys/plan` | `imtakt_plan` |
+| `GET /v1/journeys/options/:id` | `imtakt_show` |
+| `GET /v1/stops/:id/live` | `imtakt_status` |
+| `GET /v1/trains/:runId` | `imtakt_follow` |
 
 ## Errors
 

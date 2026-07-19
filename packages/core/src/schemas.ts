@@ -138,10 +138,20 @@ export const LineClassSchema = z.enum(["long_distance"])
 export const JourneyPreferencesSchema = z.object({
   excludeLineClasses: z.array(LineClassSchema).optional(),
   maxTransfers: z.number().int().min(0).max(10).optional(),
-  maxResults: z.number().int().min(1).max(10).optional(),
+  /** Max itineraries returned (board default 20). */
+  maxResults: z.number().int().min(1).max(30).optional(),
 })
 
 export type JourneyPreferences = z.infer<typeof JourneyPreferencesSchema>
+
+export const FareProfileSchema = z.enum(["any", "regio", "d-ticket"])
+export type FareProfile = z.infer<typeof FareProfileSchema>
+
+export const JourneyViewSchema = z.enum(["full", "board"])
+export type JourneyView = z.infer<typeof JourneyViewSchema>
+
+export const JourneyPackSchema = z.enum(["windows", "round-trip", "day-chain"])
+export type JourneyPack = z.infer<typeof JourneyPackSchema>
 
 export const RealtimeSnapshotSchema = z.object({
   available: z.boolean(),
@@ -150,18 +160,107 @@ export const RealtimeSnapshotSchema = z.object({
 
 export type RealtimeSnapshot = z.infer<typeof RealtimeSnapshotSchema>
 
-export const PlanJourneyRequestSchema = z.object({
-  from: PlaceRefSchema,
-  to: PlaceRefSchema,
-  when: z.string().datetime(),
-  preferences: JourneyPreferencesSchema.optional(),
+export const TripTimeSchema = z.object({
+  intent: z.enum(["departAfter", "arriveBy", "leaveBy", "windowPack", "eventEnd"]),
+  anchorUtc: z.string().datetime(),
+  anchorLocal: z.string().optional(),
+  tz: z.string().optional(),
+  windowMinutes: z.number().int().nonnegative().optional(),
+  arriveSlackMinutes: z.number().int().optional(),
+  departSlackMinutes: z.number().int().optional(),
+  serviceDate: z.string().optional(),
+  leaveByUtc: z.string().datetime().optional(),
+  pageCursor: z.string().optional(),
 })
+
+export type TripTime = z.infer<typeof TripTimeSchema>
+
+export const PlanJourneyRequestSchema = z
+  .object({
+    from: PlaceRefSchema.optional(),
+    to: PlaceRefSchema.optional(),
+    /** Depart-after UTC ISO (default when no arrive/leaveBy). */
+    when: z.string().datetime().optional(),
+    /** Arrive-by UTC ISO — MOTIS arriveBy=true. */
+    arrive: z.string().datetime().optional(),
+    /** Latest acceptable departure UTC ISO. */
+    leaveBy: z.string().datetime().optional(),
+    /** Meeting/event end — depart after this time. */
+    departAfterEvent: z.string().datetime().optional(),
+    windowMinutes: z.number().int().min(1).max(24 * 60).optional(),
+    arriveSlackMinutes: z.number().int().min(0).max(180).optional(),
+    departSlackMinutes: z.number().int().min(0).max(180).optional(),
+    minConnectionMinutes: z.number().int().min(0).max(60).optional(),
+    nearby: z.boolean().optional(),
+    fare: FareProfileSchema.optional(),
+    view: JourneyViewSchema.optional(),
+    pageCursor: z.string().optional(),
+    pack: JourneyPackSchema.optional(),
+    /** For pack=windows: "06:00+120m,17:00+120m" (Berlin local or ISO). */
+    windows: z.string().optional(),
+    /** Comma-separated stops for pack=day-chain. */
+    stops: z.string().optional(),
+    /** For pack=round-trip. */
+    returnAfter: z.string().datetime().optional(),
+    dwellMinutes: z.number().int().min(0).max(24 * 60).optional(),
+    /** Depart after this ISO (recovery / missed connection). */
+    departAfter: z.string().datetime().optional(),
+    preferences: JourneyPreferencesSchema.optional(),
+  })
+  .refine(
+    (v) =>
+      v.pack === "day-chain"
+        ? !!(v.stops && v.stops.split(",").filter(Boolean).length >= 2)
+        : !!(v.from && v.to),
+    { message: "from and to are required (or stops for day-chain pack)" },
+  )
+  .refine(
+    (v) =>
+      !!(v.when || v.arrive || v.leaveBy || v.departAfterEvent || v.departAfter || v.pack),
+    {
+      message: "One of when, arrive, leaveBy, departAfterEvent, departAfter, or pack is required",
+    },
+  )
 
 export type PlanJourneyRequest = z.infer<typeof PlanJourneyRequestSchema>
 
 export const PreferencesAppliedSchema = z.object({
   excludeLineClasses: z.boolean().optional(),
   maxTransfers: z.number().optional(),
+  fare: FareProfileSchema.optional(),
+  nearby: z.boolean().optional(),
+  view: JourneyViewSchema.optional(),
+})
+
+export const PlanJourneyClusterSchema = z.object({
+  origins: z.array(z.string()),
+  destinations: z.array(z.string()),
+})
+
+export const PlanJourneyAlternativesSchema = z.object({
+  nearbyOriginsTried: z.array(z.string()).optional(),
+  fasterWithSurcharge: z
+    .array(z.object({ summary: z.string(), optionId: z.string().optional() }))
+    .optional(),
+})
+
+export const BoardOptionSchema = z.object({
+  optionId: z.string(),
+  departLocal: z.string(),
+  arriveLocal: z.string(),
+  depart: z.string().datetime(),
+  arrive: z.string().datetime(),
+  durationMinutes: z.number().int(),
+  changes: z.number().int(),
+  lines: z.array(z.string()),
+  fareOk: z.boolean(),
+  riskLevel: z.enum(["low", "medium", "high"]),
+  connectionScore: z.number().int().min(0).max(100),
+  originStop: z.string(),
+  destStop: z.string(),
+  tags: z.array(z.string()),
+  arriveSlackMinutes: z.number().int().optional(),
+  departSlackMinutes: z.number().int().optional(),
 })
 
 export const PlanJourneyResponseSchema = z.object({
@@ -170,9 +269,34 @@ export const PlanJourneyResponseSchema = z.object({
   realtime: RealtimeSnapshotSchema.optional(),
   attribution: z.string().optional(),
   preferencesApplied: PreferencesAppliedSchema.optional(),
+  time: TripTimeSchema.optional(),
+  cluster: PlanJourneyClusterSchema.optional(),
+  alternatives: PlanJourneyAlternativesSchema.optional(),
+  warnings: z.array(z.string()).optional(),
+  /** Present when view=board — thin options (also built client-side). */
+  board: z
+    .object({
+      schema: z.literal("imtakt.agent.board/v1"),
+      options: z.array(BoardOptionSchema),
+      meta: z.object({
+        windowMinutes: z.number(),
+        returned: z.number(),
+        truncated: z.boolean(),
+        latestSafeOptionId: z.string().optional(),
+      }),
+    })
+    .optional(),
+  /** Opaque optionId → journey index mapping for expand (server cache key). */
+  optionIds: z.array(z.string()).optional(),
 })
 
 export type PlanJourneyResponse = z.infer<typeof PlanJourneyResponseSchema>
+
+export const ExpandJourneyRequestSchema = z.object({
+  optionId: z.string().min(1),
+})
+
+export type ExpandJourneyRequest = z.infer<typeof ExpandJourneyRequestSchema>
 
 export const BoardDepartureSchema = z.object({
   line: LineSchema,

@@ -24,9 +24,14 @@ export { ImTaktApiError, ImTaktValidationError } from "./errors.js"
 export { ImTaktAmbiguousPlaceError, createAgentHarness, normalizeRealtime } from "./harness.js"
 export type {
   AgentHarness,
+  PlanResult,
   PlanTripResult,
+  PlanArgs,
+  StatusResult,
+  FollowResult,
   ResolvedPlace,
   TripPreferences,
+  HarnessOptions,
   FormatOutput,
   HarnessFormatOptions,
 } from "./harness.js"
@@ -39,8 +44,23 @@ export type {
   CompactLeg,
   PresentationMode,
   PlanningDomain,
+  DomainProfile,
+  DomainStatus,
 } from "@imtakt/core"
-export { PLAN_SCHEMA, FIND_SCHEMA, LIVE_SCHEMA, TRAIN_SCHEMA } from "@imtakt/core"
+export {
+  PLAN_SCHEMA,
+  BOARD_SCHEMA,
+  FIND_SCHEMA,
+  LIVE_SCHEMA,
+  TRAIN_SCHEMA,
+  LOGISTICS_PLAN_SCHEMA,
+  LOGISTICS_BOARD_SCHEMA,
+  LOGISTICS_FIND_SCHEMA,
+  DOMAIN_PROFILES,
+  getDomainProfile,
+  assertLiveDomain,
+  HARNESS_PRINCIPLES,
+} from "@imtakt/core"
 export { resolveBaseUrl } from "@imtakt/core"
 
 export type ImTaktClientOptions = {
@@ -54,6 +74,10 @@ export type ImTaktClientOptions = {
 export type ImTaktClient = {
   findStops: (req: FindStopsRequest) => Promise<FindStopsResponse>
   planJourney: (req: PlanJourneyRequest) => Promise<PlanJourneyResponse>
+  /** Expand a board optionId to a full plan (cached server-side). */
+  expandJourney: (optionId: string) => Promise<PlanJourneyResponse>
+  /** Pack responses (windows / round-trip / day-chain) — untyped facet envelope. */
+  planJourneyPack: (req: PlanJourneyRequest) => Promise<unknown>
   stationBoard: (stopId: string) => Promise<StationBoardResponse>
   stationLive: (
     stopId: string,
@@ -121,6 +145,21 @@ export function createImTakt(options: ImTaktClientOptions = {}): ImTaktClient {
     findStops: (req) => post("/v1/stops/find", FindStopsRequestSchema, FindStopsResponseSchema, req),
     planJourney: (req) =>
       post("/v1/journeys/plan", PlanJourneyRequestSchema, PlanJourneyResponseSchema, req),
+    expandJourney: async (optionId) => {
+      const path = `/v1/journeys/options/${encodeURIComponent(optionId)}`
+      return get(path, PlanJourneyResponseSchema)
+    },
+    planJourneyPack: async (req) => {
+      const payload = PlanJourneyRequestSchema.parse(req)
+      const path = "/v1/journeys/plan"
+      const res = await fetchWithTimeout(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw await readApiError(res, path)
+      return res.json()
+    },
     stationBoard: (stopId) =>
       get(`/v1/stops/${encodeURIComponent(stopId)}/board`, StationBoardResponseSchema),
     stationLive: (stopId, opts) => {

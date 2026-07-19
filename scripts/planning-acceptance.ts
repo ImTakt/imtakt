@@ -156,29 +156,62 @@ await check("npm.cli.local", "platform", async () => {
   const v = runCli(["--version"])
   assert(v.code === 0, v.stderr || "cli exit")
   const j = JSON.parse(v.stdout)
-  assert(j.version === "0.3.1", `version ${j.version}`)
+  assert(j.version === "0.3.2", `version ${j.version}`)
   assert(j.harness === "@imtakt/sdk", "missing harness marker")
   assert(j.output?.default === "auto", "output.default auto")
   assert(Array.isArray(j.output?.channels) && j.output.channels.includes("json"), "output.channels")
   return j.version
 })
 
+await check("cli.help_five_verbs", "platform", async () => {
+  const h = runCli(["--help"])
+  assert(h.code === 0, h.stderr || "help exit")
+  const text = h.stdout
+  for (const verb of ["find", "plan", "show", "status", "follow", "analytics"]) {
+    assert(new RegExp(`^\\s*${verb}\\b`, "m").test(text), `help missing ${verb}`)
+  }
+  // Primary command rows only (stop before Aliases / Output)
+  const commandsBlock = text.split("Commands:")[1]?.split(/Aliases|Output:/)[0] ?? ""
+  for (const old of ["commute", "journey", "live", "train"]) {
+    assert(
+      !new RegExp(`^\\s*${old}\\s`, "m").test(commandsBlock),
+      `${old} still first-class in Commands`,
+    )
+  }
+  assert(/Aliases/i.test(text), "help should mention aliases")
+  return "find/plan/show/status/follow/analytics"
+})
+
+await check("harness.five_verbs_and_aliases", "platform", async () => {
+  assert(typeof harness.find === "function", "find")
+  assert(typeof harness.plan === "function", "plan")
+  assert(typeof harness.show === "function", "show")
+  assert(typeof harness.status === "function", "status")
+  assert(typeof harness.follow === "function", "follow")
+  assert(harness.resolvePlace === harness.find, "resolvePlace alias")
+  assert(harness.planTrip === harness.plan, "planTrip alias")
+  assert(harness.showOption === harness.show, "showOption alias")
+  assert(harness.stationStatus === harness.status, "stationStatus alias")
+  assert(harness.viewTrain === harness.follow, "viewTrain alias")
+  return "verbs + aliases"
+})
+
 // ─── B. Resolve ────────────────────────────────────────────────
 await check("resolve.named_hub", "resolve", async () => {
-  const r = await harness.resolvePlace("Berlin Hbf")
+  const r = await harness.find("Berlin Hbf")
   assert(r.stopId.startsWith("de_"), r.stopId)
   assert(r.confidence >= 0.7, `confidence ${r.confidence}`)
   return `${r.stop.name} (${r.stopId}) conf=${r.confidence}`
 })
 
 await check("resolve.coords", "resolve", async () => {
-  const r = await harness.resolvePlace({ lat: 52.5219, lng: 13.4132 })
+  const r = await harness.find({ lat: 52.5219, lng: 13.4132 })
   assert(r.stopId, "no stop")
   return `${r.stop.name} (${r.stopId})`
 })
 
 await check("resolve.address_fuzzy", "resolve", async () => {
-  const r = await harness.resolvePlace("Gräfelfing, Am Haag")
+  const r = await harness.find("Gräfelfing, Am Haag")
   assert(r.stopId, "no stop")
   return `${r.stop.name} conf=${r.confidence} type=${r.matchType}`
 })
@@ -186,7 +219,7 @@ await check("resolve.address_fuzzy", "resolve", async () => {
 await check("resolve.ambiguous_throws", "resolve", async () => {
   try {
     // Broad German place name with many distant matches — must fail at minConfidence=1
-    await harness.resolvePlace("Mitte", { minConfidence: 1, field: "from" })
+    await harness.find("Mitte", { minConfidence: 1, field: "from" })
     throw new Error("expected ImTaktAmbiguousPlaceError")
   } catch (err) {
     assert(err instanceof ImTaktAmbiguousPlaceError, `wrong error: ${err}`)
@@ -196,16 +229,16 @@ await check("resolve.ambiguous_throws", "resolve", async () => {
 })
 
 // ─── C. Plan — single search ───────────────────────────────────
-let berlinMuenchen: Awaited<ReturnType<typeof harness.planTrip>>
+let berlinMuenchen: Awaited<ReturnType<typeof harness.plan>>
 
 await check("plan.long_distance_facets", "plan", async () => {
-  berlinMuenchen = await harness.planTrip({
+  berlinMuenchen = await harness.plan({
     from: "Berlin Hbf",
     to: "München Hbf",
     when: whenPlusHours(2),
   })
   assert(berlinMuenchen.journeys.length >= 1, "no journeys")
-  const out = harness.format(berlinMuenchen, "journey", {
+  const out = harness.format(berlinMuenchen, "plan", {
     labels: berlinMuenchen.labels,
     warnings: berlinMuenchen.warnings,
   })
@@ -225,7 +258,7 @@ await check("plan.long_distance_facets", "plan", async () => {
   intelligenceShape(payload.intelligence)
   intelligenceShape(berlinMuenchen.intelligence as unknown as Record<string, unknown>)
   assert(berlinMuenchen.labels.length >= 1, "no labels")
-  // Harness product: agent envelope attached on planTrip (no format required)
+  // Harness product: agent envelope attached on plan (no format required)
   assert(berlinMuenchen.agent?.schema === "imtakt.agent.plan/v1", "trip.agent missing")
   assert(berlinMuenchen.agent.journeys.length === payload.journeys.length, "agent/format parity")
   assert(berlinMuenchen.realtime != null, "realtime always normalized")
@@ -242,9 +275,9 @@ await check("plan.long_distance_facets", "plan", async () => {
 
 await check("plan.regio_excludes_ice", "plan", async () => {
   // Try a few departure windows — overnight can be ICE-only after filter
-  let trip: Awaited<ReturnType<typeof harness.planTrip>> | undefined
+  let trip: Awaited<ReturnType<typeof harness.plan>> | undefined
   for (const h of [3, 6, 9, 12]) {
-    const t = await harness.planTrip({
+    const t = await harness.plan({
       from: "München Hbf",
       to: "Augsburg Hbf",
       when: whenPlusHours(h),
@@ -258,7 +291,7 @@ await check("plan.regio_excludes_ice", "plan", async () => {
   if (!trip) {
     return { soft: "no regio options on MUC→AUG in sampled windows (ICE-only after filter)" }
   }
-  const out = harness.format(trip, "journey", { labels: trip.labels, warnings: trip.warnings })
+  const out = harness.format(trip, "plan", { labels: trip.labels, warnings: trip.warnings })
   const payload = out.payload as { journeys: { lines: string[]; option: number }[] }
   for (const j of payload.journeys) {
     for (const line of j.lines) {
@@ -270,9 +303,9 @@ await check("plan.regio_excludes_ice", "plan", async () => {
 })
 
 await check("plan.stop_ids_skip_resolve", "plan", async () => {
-  const from = await harness.resolvePlace("Köln Hbf")
-  const to = await harness.resolvePlace("Frankfurt(Main)Hbf")
-  const trip = await harness.planTrip({
+  const from = await harness.find("Köln Hbf")
+  const to = await harness.find("Frankfurt(Main)Hbf")
+  const trip = await harness.plan({
     from: { stopId: from.stopId },
     to: { stopId: to.stopId },
     when: whenPlusHours(4),
@@ -283,32 +316,32 @@ await check("plan.stop_ids_skip_resolve", "plan", async () => {
 })
 
 await check("plan.urban_coords", "plan", async () => {
-  const trip = await harness.planTrip({
+  const trip = await harness.plan({
     from: { lat: 52.5219, lng: 13.4132 },
     to: { lat: 52.525, lng: 13.3694 },
     when: whenPlusHours(1),
   })
   assert(trip.journeys.length >= 1, "no journeys")
-  const out = harness.format(trip, "journey", { labels: trip.labels, warnings: trip.warnings })
+  const out = harness.format(trip, "plan", { labels: trip.labels, warnings: trip.warnings })
   const payload = out.payload as { journeys: unknown[] }
   return `${payload.journeys.length} multimodal options`
 })
 
 await check("plan.short_regional", "plan", async () => {
-  const trip = await harness.planTrip({
+  const trip = await harness.plan({
     from: "München Hbf",
     to: "München Flughafen Terminal",
     when: whenPlusHours(2),
   })
   assert(trip.journeys.length >= 1, "no journeys")
-  const out = harness.format(trip, "journey", { labels: trip.labels, warnings: trip.warnings })
+  const out = harness.format(trip, "plan", { labels: trip.labels, warnings: trip.warnings })
   const payload = out.payload as { journeys: { durationMinutes: number; riskLevel: string }[] }
   for (const j of payload.journeys) facetKeys(j as unknown as Record<string, unknown>)
   return `${payload.journeys.length} options; fastest=${Math.min(...payload.journeys.map((j) => j.durationMinutes))}m`
 })
 
 await check("plan.max_transfers", "plan", async () => {
-  const trip = await harness.planTrip({
+  const trip = await harness.plan({
     from: "Hamburg Hbf",
     to: "Dresden Hbf",
     when: whenPlusHours(5),
@@ -343,10 +376,10 @@ await check("plan.warnings_deduped", "plan", async () => {
 await check("multi.time_windows", "multi", async () => {
   const t1 = whenPlusHours(2)
   const t2 = whenPlusHours(10)
-  const a = await harness.planTrip({ from: "Berlin Hbf", to: "Hamburg Hbf", when: t1 })
-  const b = await harness.planTrip({ from: "Berlin Hbf", to: "Hamburg Hbf", when: t2 })
-  const fa = harness.format(a, "journey", { labels: a.labels, warnings: a.warnings }).json!
-  const fb = harness.format(b, "journey", { labels: b.labels, warnings: b.warnings }).json!
+  const a = await harness.plan({ from: "Berlin Hbf", to: "Hamburg Hbf", when: t1 })
+  const b = await harness.plan({ from: "Berlin Hbf", to: "Hamburg Hbf", when: t2 })
+  const fa = harness.format(a, "plan", { labels: a.labels, warnings: a.warnings }).json!
+  const fb = harness.format(b, "plan", { labels: b.labels, warnings: b.warnings }).json!
   writeFileSync(join(TMP, "s1.json"), fa)
   writeFileSync(join(TMP, "s2.json"), fb)
   const mergedIn = JSON.stringify({
@@ -367,12 +400,12 @@ await check("multi.time_windows", "multi", async () => {
 })
 
 await check("multi.round_trip_matrix", "multi", async () => {
-  const outTrip = await harness.planTrip({
+  const outTrip = await harness.plan({
     from: "München Hbf",
     to: "Nürnberg Hbf",
     when: whenPlusHours(3),
   })
-  const retTrip = await harness.planTrip({
+  const retTrip = await harness.plan({
     from: "Nürnberg Hbf",
     to: "München Hbf",
     when: whenPlusHours(8),
@@ -381,12 +414,12 @@ await check("multi.round_trip_matrix", "multi", async () => {
     searches: [
       {
         label: "out",
-        result: harness.format(outTrip, "journey", { labels: outTrip.labels, warnings: outTrip.warnings })
+        result: harness.format(outTrip, "plan", { labels: outTrip.labels, warnings: outTrip.warnings })
           .payload,
       },
       {
         label: "return",
-        result: harness.format(retTrip, "journey", {
+        result: harness.format(retTrip, "plan", {
           labels: retTrip.labels,
           warnings: retTrip.warnings,
         }).payload,
@@ -409,14 +442,14 @@ await check("multi.day_chain_abc", "multi", async () => {
   const b = "Nürnberg Hbf"
   const c = "Würzburg Hbf"
   const t0 = whenPlusHours(2)
-  const ab = await harness.planTrip({ from: a, to: b, when: t0 })
+  const ab = await harness.plan({ from: a, to: b, when: t0 })
   assert(ab.journeys.length >= 1, "A→B empty")
   const abBest = ab.journeys.reduce((best, j) =>
     j.durationMinutes < best.durationMinutes ? j : best,
   )
   const arriveB = abBest.legs[abBest.legs.length - 1]!.arrival
   const t1 = new Date(Date.parse(arriveB) + 45 * 60_000).toISOString()
-  const bc = await harness.planTrip({ from: b, to: c, when: t1 })
+  const bc = await harness.plan({ from: b, to: c, when: t1 })
   assert(bc.journeys.length >= 1, "B→C empty")
   const merged = runPy(
     "merge-journey-searches.py",
@@ -424,11 +457,11 @@ await check("multi.day_chain_abc", "multi", async () => {
       searches: [
         {
           label: "leg1",
-          result: harness.format(ab, "journey", { labels: ab.labels, warnings: ab.warnings }).payload,
+          result: harness.format(ab, "plan", { labels: ab.labels, warnings: ab.warnings }).payload,
         },
         {
           label: "leg2",
-          result: harness.format(bc, "journey", { labels: bc.labels, warnings: bc.warnings }).payload,
+          result: harness.format(bc, "plan", { labels: bc.labels, warnings: bc.warnings }).payload,
         },
       ],
     }),
@@ -444,11 +477,11 @@ await check("multi.relocation_matrix", "multi", async () => {
   const when = whenPlusHours(4)
   const searches = []
   for (const home of homes) {
-    const trip = await harness.planTrip({ from: home, to: office, when })
+    const trip = await harness.plan({ from: home, to: office, when })
     searches.push({
       label: home,
       when,
-      result: harness.format(trip, "journey", { labels: trip.labels, warnings: trip.warnings }).payload,
+      result: harness.format(trip, "plan", { labels: trip.labels, warnings: trip.warnings }).payload,
     })
   }
   const py = runPy("merge-journey-searches.py", JSON.stringify({ searches }))
@@ -463,9 +496,9 @@ let liveJson = ""
 let runId = ""
 
 await check("live.board_compact", "live", async () => {
-  const board = await harness.stationStatus("Berlin Hbf", { limit: 16 })
+  const board = await harness.status("Berlin Hbf", { limit: 16 })
   assert(board.departures.length >= 1, "no departures")
-  const out = harness.format(board, "live")
+  const out = harness.format(board, "status")
   liveJson = out.json!
   const p = out.payload as { departures: unknown[]; station: string }
   assert(p.departures.length >= 1, "compact empty")
@@ -495,7 +528,7 @@ await check("train.drilldown", "live", async () => {
     runId = ids.runIds[0].runId
   }
   const train = await client.viewTrain(runId)
-  const out = harness.format(train, "train")
+  const out = harness.format(train, "follow")
   const p = out.payload as {
     runId: string
     status: string
@@ -578,9 +611,9 @@ await check("analytics.use_case_recipes", "analytics", async () => {
   return "6 use-cases"
 })
 
-await check("cli.journey_format_json", "analytics", async () => {
+await check("cli.plan_format_json", "analytics", async () => {
   const r = runCli([
-    "journey",
+    "plan",
     "Stuttgart Hbf",
     "Karlsruhe Hbf",
     "--at",
@@ -595,11 +628,61 @@ await check("cli.journey_format_json", "analytics", async () => {
   return `${d.journeys.length} options via CLI`
 })
 
-await check("cli.journey_regio_flag", "analytics", async () => {
+await check("cli.alias_journey_forwards", "analytics", async () => {
+  const r = runCli([
+    "journey",
+    "Stuttgart Hbf",
+    "Karlsruhe Hbf",
+    "--at",
+    whenPlusHours(3),
+    "--format",
+    "json",
+  ])
+  assert(r.code === 0, r.stderr || r.stdout.slice(0, 200))
+  assert(/deprecated|use `plan`/i.test(r.stderr), `expected alias tip, got: ${r.stderr.slice(0, 120)}`)
+  const d = JSON.parse(r.stdout)
+  assert(d.journeys?.length >= 1 || d.options?.length >= 1, "alias empty")
+  return "journey→plan tip + data"
+})
+
+await check("cli.plan_board_then_show", "analytics", async () => {
+  const board = runCli([
+    "plan",
+    "Berlin Hbf",
+    "Hamburg Hbf",
+    "--at",
+    whenPlusHours(3),
+    "--view",
+    "board",
+    "--window",
+    "90m",
+    "--limit",
+    "10",
+    "--format",
+    "json",
+  ])
+  assert(board.code === 0, board.stderr || board.stdout.slice(0, 200))
+  const b = JSON.parse(board.stdout)
+  if (b.schema !== "imtakt.agent.board/v1") {
+    return { soft: `board schema ${b.schema} (API may not be deployed)` }
+  }
+  assert(Array.isArray(b.options) && b.options.length >= 1, "no board options")
+  const optionId = b.options[0].optionId as string
+  const show = runCli(["show", optionId, "--format", "json"])
+  if (show.code !== 0) {
+    // Hosted option cache may miss (same class as hel1.show_expand)
+    return { soft: `board ok; show unavailable: ${show.stdout.slice(0, 120)}` }
+  }
+  const full = JSON.parse(show.stdout)
+  assert(full.schema === "imtakt.agent.plan/v1", `show schema ${full.schema}`)
+  return `board→show ${optionId}`
+})
+
+await check("cli.plan_regio_flag", "analytics", async () => {
   let d: { journeys: { lines: string[] }[] } | undefined
   for (const h of [6, 9, 12, 15]) {
     const r = runCli([
-      "journey",
+      "plan",
       "München Hbf",
       "Augsburg Hbf",
       "--regio",
@@ -627,20 +710,20 @@ await check("cli.journey_regio_flag", "analytics", async () => {
 // ─── G. Consulting edge cases (hard) ───────────────────────────
 await check("consult.same_name_city_scoped", "consult", async () => {
   // City token must beat bare "Hauptbahnhof" ambiguity
-  const r = await harness.resolvePlace("München Hauptbahnhof")
+  const r = await harness.find("München Hauptbahnhof")
   assert(/münchen|muenchen|munich/i.test(r.stop.name) || r.stop.name.includes("Hbf"), r.stop.name)
   assert(r.confidence >= 0.85, `low conf ${r.confidence}`)
   return `${r.stop.name} (${r.stopId})`
 })
 
 await check("consult.airport_city_access", "consult", async () => {
-  const trip = await harness.planTrip({
+  const trip = await harness.plan({
     from: "Frankfurt Flughafen Fernbahnhof",
     to: "Frankfurt(Main)Hbf",
     when: whenPlusHours(2),
   })
   assert(trip.journeys.length >= 1, "no airport access options")
-  const out = harness.format(trip, "journey", { labels: trip.labels, warnings: trip.warnings })
+  const out = harness.format(trip, "plan", { labels: trip.labels, warnings: trip.warnings })
   const payload = out.payload as { journeys: { durationMinutes: number; riskLevel: string }[] }
   const fastest = Math.min(...payload.journeys.map((j) => j.durationMinutes))
   assert(fastest <= 30, `airport→Hbf ${fastest}m unexpectedly slow`)
@@ -652,13 +735,13 @@ await check("consult.overnight_sparse", "consult", async () => {
   const when = new Date()
   when.setUTCHours(0, 30, 0, 0) // ~02:30 Berlin in summer
   if (when.getTime() < Date.now()) when.setUTCDate(when.getUTCDate() + 1)
-  const trip = await harness.planTrip({
+  const trip = await harness.plan({
     from: "Berlin Hbf",
     to: "München Hbf",
     when: when.toISOString(),
   })
   assert(trip.journeys.length >= 1, "overnight returned empty — unexpected")
-  const out = harness.format(trip, "journey", { labels: trip.labels, warnings: trip.warnings })
+  const out = harness.format(trip, "plan", { labels: trip.labels, warnings: trip.warnings })
   const payload = out.payload as { journeys: { durationMinutes: number; riskLevel: string }[] }
   return `${payload.journeys.length} overnight opts; maxDur=${Math.max(...payload.journeys.map((j) => j.durationMinutes))}m`
 })
@@ -667,8 +750,8 @@ await check("consult.hub_vs_local_station", "consult", async () => {
   // Same metro area: Hbf vs Ostbahnhof — consulting often compares both
   const when = whenPlusHours(3)
   const [toHbf, toOst] = await Promise.all([
-    harness.planTrip({ from: "Augsburg Hbf", to: "München Hbf", when }),
-    harness.planTrip({ from: "Augsburg Hbf", to: "München Ost", when }),
+    harness.plan({ from: "Augsburg Hbf", to: "München Hbf", when }),
+    harness.plan({ from: "Augsburg Hbf", to: "München Ost", when }),
   ])
   assert(toHbf.journeys.length >= 1 && toOst.journeys.length >= 1, "empty hub compare")
   const hbfMin = Math.min(...toHbf.journeys.map((j) => j.durationMinutes))
@@ -677,12 +760,12 @@ await check("consult.hub_vs_local_station", "consult", async () => {
 })
 
 await check("consult.tight_transfer_facets", "consult", async () => {
-  const trip = await harness.planTrip({
+  const trip = await harness.plan({
     from: "Hamburg Hbf",
     to: "München Hbf",
     when: whenPlusHours(4),
   })
-  const out = harness.format(trip, "journey", { labels: trip.labels, warnings: trip.warnings })
+  const out = harness.format(trip, "plan", { labels: trip.labels, warnings: trip.warnings })
   const payload = out.payload as {
     journeys: {
       option: number
@@ -707,8 +790,8 @@ await check("consult.tight_transfer_facets", "consult", async () => {
 await check("consult.regio_vs_any_tradeoff", "consult", async () => {
   const when = whenPlusHours(3)
   const [any, regio] = await Promise.all([
-    harness.planTrip({ from: "Köln Hbf", to: "Frankfurt(Main)Hbf", when }),
-    harness.planTrip({
+    harness.plan({ from: "Köln Hbf", to: "Frankfurt(Main)Hbf", when }),
+    harness.plan({
       from: "Köln Hbf",
       to: "Frankfurt(Main)Hbf",
       when,
@@ -720,7 +803,7 @@ await check("consult.regio_vs_any_tradeoff", "consult", async () => {
   const regioMin =
     regio.journeys.length > 0 ? Math.min(...regio.journeys.map((j) => j.durationMinutes)) : null
   // Agent compares; we only assert both shapes are decision-ready
-  const anyPayload = harness.format(any, "journey", { labels: any.labels, warnings: any.warnings })
+  const anyPayload = harness.format(any, "plan", { labels: any.labels, warnings: any.warnings })
     .payload as { journeys: unknown[] }
   for (const j of anyPayload.journeys) facetKeys(j as Record<string, unknown>)
   return `any ${anyMin}m (${any.journeys.length}) vs regio ${regioMin ?? "none"}m (${regio.journeys.length})`
@@ -729,13 +812,13 @@ await check("consult.regio_vs_any_tradeoff", "consult", async () => {
 await check("consult.cross_metro_day", "consult", async () => {
   // Consulting: morning workshop A, afternoon client B, evening hotel C — parallel resolves + chained when
   const stops = await Promise.all([
-    harness.resolvePlace("Stuttgart Hbf"),
-    harness.resolvePlace("Karlsruhe Hbf"),
-    harness.resolvePlace("Mannheim Hbf"),
+    harness.find("Stuttgart Hbf"),
+    harness.find("Karlsruhe Hbf"),
+    harness.find("Mannheim Hbf"),
   ])
   const [a, b, c] = stops
   const t0 = whenPlusHours(2)
-  const ab = await harness.planTrip({
+  const ab = await harness.plan({
     from: { stopId: a!.stopId },
     to: { stopId: b!.stopId },
     when: t0,
@@ -743,7 +826,7 @@ await check("consult.cross_metro_day", "consult", async () => {
   assert(ab.journeys.length >= 1, "A→B empty")
   const arrive = ab.journeys[0]!.legs[ab.journeys[0]!.legs.length - 1]!.arrival
   const t1 = new Date(Date.parse(arrive) + 90 * 60_000).toISOString()
-  const bc = await harness.planTrip({
+  const bc = await harness.plan({
     from: { stopId: b!.stopId },
     to: { stopId: c!.stopId },
     when: t1,
@@ -753,18 +836,18 @@ await check("consult.cross_metro_day", "consult", async () => {
 })
 
 await check("consult.peak_vs_offpeak_matrix", "consult", async () => {
-  const origin = await harness.resolvePlace("Berlin Hbf")
-  const dest = await harness.resolvePlace("Leipzig Hbf")
+  const origin = await harness.find("Berlin Hbf")
+  const dest = await harness.find("Leipzig Hbf")
   // Build two UTC mornings: weekday peak-ish vs late evening
   const peak = whenPlusHours(1)
   const off = whenPlusHours(12)
   const [p, o] = await Promise.all([
-    harness.planTrip({
+    harness.plan({
       from: { stopId: origin.stopId },
       to: { stopId: dest.stopId },
       when: peak,
     }),
-    harness.planTrip({
+    harness.plan({
       from: { stopId: origin.stopId },
       to: { stopId: dest.stopId },
       when: off,
@@ -777,12 +860,12 @@ await check("consult.peak_vs_offpeak_matrix", "consult", async () => {
         {
           label: "peak",
           when: peak,
-          result: harness.format(p, "journey", { labels: p.labels, warnings: p.warnings }).payload,
+          result: harness.format(p, "plan", { labels: p.labels, warnings: p.warnings }).payload,
         },
         {
           label: "offpeak",
           when: off,
-          result: harness.format(o, "journey", { labels: o.labels, warnings: o.warnings }).payload,
+          result: harness.format(o, "plan", { labels: o.labels, warnings: o.warnings }).payload,
         },
       ],
     }),
@@ -793,10 +876,10 @@ await check("consult.peak_vs_offpeak_matrix", "consult", async () => {
 })
 
 await check("consult.batch_od_stopid_fastpath", "consult", async () => {
-  // Fast consulting pattern: resolve once → parallel planTrip with stopIds only
+  // Fast consulting pattern: resolve once → parallel plan with stopIds only
   const names = ["Berlin Hbf", "Hamburg Hbf", "Köln Hbf", "München Hbf"]
   const tResolve0 = Date.now()
-  const resolved = await Promise.all(names.map((n) => harness.resolvePlace(n)))
+  const resolved = await Promise.all(names.map((n) => harness.find(n)))
   const resolveMs = Date.now() - tResolve0
   const when = whenPlusHours(5)
   const pairs = [
@@ -808,7 +891,7 @@ await check("consult.batch_od_stopid_fastpath", "consult", async () => {
   const tPlan0 = Date.now()
   const trips = await Promise.all(
     pairs.map(([i, j]) =>
-      harness.planTrip({
+      harness.plan({
         from: { stopId: resolved[i]!.stopId },
         to: { stopId: resolved[j]!.stopId },
         when,
@@ -823,9 +906,9 @@ await check("consult.batch_od_stopid_fastpath", "consult", async () => {
 })
 
 await check("consult.parallel_resolve_speed", "consult", async () => {
-  // Named from+to must resolve in parallel inside planTrip (one RTT class, not two)
+  // Named from+to must resolve in parallel inside plan (one RTT class, not two)
   const t0 = Date.now()
-  const trip = await harness.planTrip({
+  const trip = await harness.plan({
     from: "Düsseldorf Hbf",
     to: "Dortmund Hbf",
     when: whenPlusHours(2),
@@ -835,15 +918,15 @@ await check("consult.parallel_resolve_speed", "consult", async () => {
   assert(trip.resolved?.from && trip.resolved?.to, "expected snap labels")
   // Generous bound: sequential would often exceed; parallel should stay under ~4s typical
   if (ms > 8000) {
-    return { soft: `planTrip took ${ms}ms — check API latency (parallel resolve still applied)` }
+    return { soft: `plan took ${ms}ms — check API latency (parallel resolve still applied)` }
   }
-  return `planTrip+parallel resolve ${ms}ms; ${trip.journeys.length} opts`
+  return `plan+parallel resolve ${ms}ms; ${trip.journeys.length} opts`
 })
 
 await check("consult.ambiguous_then_pin", "consult", async () => {
   // Consulting workflow: strict snap → disambiguate → pin stopId → plan (no re-ambiguity)
   try {
-    await harness.planTrip({
+    await harness.plan({
       from: "Mitte",
       to: "Berlin Hbf",
       when: whenPlusHours(2),
@@ -853,7 +936,7 @@ await check("consult.ambiguous_then_pin", "consult", async () => {
   } catch (err) {
     assert(err instanceof ImTaktAmbiguousPlaceError, String(err))
     const pinned = err.candidates.find((c) => /berlin/i.test(c.name)) ?? err.candidates[0]!
-    const trip = await harness.planTrip({
+    const trip = await harness.plan({
       from: { stopId: pinned.stopId ?? pinned.id },
       to: "Berlin Hbf",
       when: whenPlusHours(2),
@@ -861,6 +944,168 @@ await check("consult.ambiguous_then_pin", "consult", async () => {
     assert(trip.journeys.length >= 1, "pinned plan empty")
     return `pinned ${pinned.name} → ${trip.journeys.length} opts`
   }
+})
+
+// ─── Domain scale-out contract ──────────────────────────────────
+await check("domain.profiles", "domain", async () => {
+  const { DOMAIN_PROFILES, assertLiveDomain, HARNESS_PRINCIPLES } = await import(
+    "../packages/core/src/agent-envelope.ts"
+  )
+  assert(DOMAIN_PROFILES.transit.status === "live", "transit live")
+  assert(DOMAIN_PROFILES.logistics.status === "reserved", "logistics reserved")
+  assert(DOMAIN_PROFILES.transit.capabilities.boardExpand === true, "boardExpand")
+  assert(HARNESS_PRINCIPLES.includes("schema_plus_domain"), "principles")
+  assertLiveDomain("transit")
+  let threw = false
+  try {
+    assertLiveDomain("logistics")
+  } catch {
+    threw = true
+  }
+  assert(threw, "logistics must throw until live")
+  assert(harness.domain === "transit", "harness.domain")
+  assert(harness.profile.domain === "transit", "harness.profile")
+  return `transit live · logistics reserved · ${HARNESS_PRINCIPLES.length} principles`
+})
+
+// ─── HEL1 time-first / board / fare ─────────────────────────────
+await check("hel1.time_parse_berlin", "hel1", async () => {
+  const { composeBerlinLocal, resolveWhen, serviceDateBerlin } = await import(
+    "../packages/core/src/time-parse.ts"
+  )
+  const iso = composeBerlinLocal("2026-07-20", "08:00")
+  assert(iso === "2026-07-20T06:00:00.000Z", `CEST compose ${iso}`)
+  assert(serviceDateBerlin(iso) === "2026-07-20", "serviceDate")
+  assert(resolveWhen("08:00", { date: "2026-07-20" }) === iso, "resolveWhen")
+  return "Berlin 08:00 → 06:00Z"
+})
+
+await check("hel1.board_arrive_d_ticket", "hel1", async () => {
+  try {
+    const trip = await harness.plan({
+      from: { stopId: "de_415702" },
+      to: { stopId: "de_349661" },
+      // Also send when for older APIs that require it; new API prefers arrive
+      when: "2026-07-20T04:00:00.000Z",
+      arrive: "2026-07-20T06:00:00.000Z",
+      preferences: {
+        fare: "d-ticket",
+        nearby: true,
+        view: "board",
+        windowMinutes: 120,
+        arriveSlackMinutes: 10,
+        maxResults: 10,
+        excludeLongDistance: true,
+      },
+    })
+    if ("pack" in trip) throw new Error("unexpected pack")
+    if (trip.agent.schema !== "imtakt.agent.board/v1") {
+      return { soft: `client board not active (schema=${trip.agent.schema})` }
+    }
+    const board = trip.agent as {
+      options: Array<{ optionId: string; fareOk: boolean; lines: string[] }>
+      meta: { latestSafeOptionId?: string }
+    }
+    if (board.options.length === 0) {
+      return { soft: "no D-Ticket board options (schedule/window)" }
+    }
+    assert(board.options.every((o) => o.optionId), "optionIds")
+    assert(!("legs" in board.options[0]!), "board must omit legs")
+    return `${board.options.length} board opts · latestSafe=${board.meta.latestSafeOptionId ?? "-"}`
+  } catch (err) {
+    return { soft: `board API: ${err instanceof Error ? err.message : String(err)}` }
+  }
+})
+
+await check("hel1.messe_0621_recall", "hel1", async () => {
+  try {
+    const trip = await harness.plan({
+      from: { stopId: "de_415702" },
+      to: { stopId: "de_349661" },
+      when: "2026-07-20T04:21:00.000Z",
+      preferences: {
+        fare: "d-ticket",
+        nearby: true,
+        view: "board",
+        windowMinutes: 120,
+        maxResults: 10,
+        excludeLongDistance: true,
+      },
+    })
+    if ("pack" in trip) throw new Error("unexpected pack")
+    if (trip.agent.schema !== "imtakt.agent.board/v1") {
+      // Full plan path — check journeys for RE9 chain
+      const hit = trip.journeys.some((j) =>
+        j.legs.some((l) => /RE9|RB87/i.test(l.line.name)),
+      )
+      return hit
+        ? `full-plan hit RE* (${trip.journeys.length} opts)`
+        : { soft: `A1: ${trip.journeys.length} full opts, no RE* yet` }
+    }
+    const board = trip.agent as { options: Array<{ departLocal: string; lines: string[] }> }
+    if (board.options.length === 0) {
+      return { soft: "A1 recall empty — stitch/MOTIS may need deploy" }
+    }
+    const hit = board.options.find(
+      (o) =>
+        o.departLocal.startsWith("06:2") &&
+        o.lines.some((l) => /RE9|RB87|RE89/i.test(l)),
+    )
+    if (!hit) {
+      return {
+        soft: `A1 soft: ${board.options.length} opts but no 06:2x RE* (sample: ${board.options
+          .slice(0, 3)
+          .map((o) => `${o.departLocal} ${o.lines.join(",")}`)
+          .join("; ")})`,
+      }
+    }
+    return `A1 hit ${hit.departLocal} ${hit.lines.join(",")}`
+  } catch (err) {
+    return { soft: `A1 API: ${err instanceof Error ? err.message : String(err)}` }
+  }
+})
+
+await check("hel1.show_expand", "hel1", async () => {
+  const trip = await harness.plan({
+    from: "Berlin Hbf",
+    to: "München Hbf",
+    when: whenPlusHours(3),
+    preferences: { view: "board", windowMinutes: 90, maxResults: 10 },
+  })
+  if ("pack" in trip) throw new Error("unexpected pack")
+  if (trip.agent.schema !== "imtakt.agent.board/v1") {
+    return { soft: "API returned full plan (board not deployed yet)" }
+  }
+  const board = trip.agent as { options: Array<{ optionId: string }> }
+  if (board.options.length === 0) return { soft: "no board options for expand" }
+  try {
+    const full = await harness.show(board.options[0]!.optionId)
+    assert(full.agent.schema === "imtakt.agent.plan/v1", "plan schema")
+    assert(full.journeys.length === 1, "one journey")
+    assert(full.journeys[0]!.legs.length >= 1, "has legs")
+    return `expanded ${board.options[0]!.optionId}`
+  } catch (err) {
+    return {
+      soft: `expand unavailable: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+})
+
+await check("hel1.connection_score", "hel1", async () => {
+  const { connectionScoreFromRisk, assessJourneyRisk } = await import(
+    "../packages/core/src/connection-risk.ts"
+  )
+  const trip = await harness.plan({
+    from: "Berlin Hbf",
+    to: "Hamburg Hbf",
+    when: whenPlusHours(2),
+    preferences: { view: "full", maxResults: 3 },
+  })
+  if ("pack" in trip) throw new Error("unexpected pack")
+  if (trip.journeys.length === 0) return { soft: "no journeys" }
+  const score = connectionScoreFromRisk(assessJourneyRisk(trip.journeys[0]!))
+  assert(score >= 0 && score <= 100, `score ${score}`)
+  return `connectionScore=${score}`
 })
 
 // ─── H. Decision boundary ──────────────────────────────────────

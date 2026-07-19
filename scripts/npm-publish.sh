@@ -45,7 +45,8 @@ done
 
 if ! $DRY_RUN; then
   echo ""
-  echo "Published. Verify:"
-  echo "  npx -y @imtakt/mcp"
-  echo "  npx -y @imtakt/cli find Alexanderplatz"
+  echo "Published 0.3.2. Verify:"
+  echo "  npx -y @imtakt/mcp@0.3.2 --version"
+  echo "  npx -y @imtakt/cli@0.3.2 plan \"Berlin Hbf\" \"München Hbf\" --view board --json | jq .schema"
+  echo "  npx -y @imtakt/cli@0.3.2 find Alexanderplatz"
 fi

@@ -106,9 +106,9 @@ export type AnalyticsScriptName = (typeof ANALYTICS_CATALOG)[number]["name"]
 const NAMES = new Set<string>(ANALYTICS_CATALOG.map((s) => s.name))
 
 const PIPE_BY_INPUT: Record<string, string> = {
-  journey: 'imtakt journey "A" "B" --format json 2>/dev/null | python3 "$(imtakt analytics path <script>)"',
-  live: 'imtakt live "Berlin Hbf" --format json 2>/dev/null | python3 "$(imtakt analytics path <script>)"',
-  train: 'imtakt train "$RUN_ID" --format json 2>/dev/null | python3 "$(imtakt analytics path <script>)"',
+  journey: 'imtakt plan "A" "B" --format json 2>/dev/null | python3 "$(imtakt analytics path <script>)"',
+  live: 'imtakt status "Berlin Hbf" --format json 2>/dev/null | python3 "$(imtakt analytics path <script>)"',
+  train: 'imtakt follow "$RUN_ID" --format json 2>/dev/null | python3 "$(imtakt analytics path <script>)"',
   multi: 'jq -s \'{searches:[{label:"morning",result:.[0]},{label:"evening",result:.[1]}]}\' s1.json s2.json | python3 "$(imtakt analytics path merge-journey-searches)"',
 }
 
@@ -121,7 +121,7 @@ export const USE_CASES = [
     scripts: [] as string[],
     agentDecides: true,
     recipe:
-      'imtakt journey "FROM" "TO" --format json 2>/dev/null\n# Read journeys[].riskLevel, totalDelayMinutes, transferGaps, tags — agent chooses',
+      'imtakt plan "FROM" "TO" --view board --format json 2>/dev/null\n# Board: options[].connectionScore / arriveSlackMinutes — then imtakt show <optionId>',
   },
   {
     id: "compare_options",
@@ -131,27 +131,27 @@ export const USE_CASES = [
     scripts: [] as string[],
     agentDecides: true,
     recipe:
-      'imtakt journey "A" "B" --format json 2>/dev/null | jq \'.journeys[] | {option, tags, durationMinutes, totalDelayMinutes, riskLevel, transferGaps}\'',
+      'imtakt plan "A" "B" --format json 2>/dev/null | jq \'.journeys[] | {option, tags, durationMinutes, totalDelayMinutes, riskLevel, transferGaps}\'',
   },
   {
     id: "compare_time_windows",
     domain: "transit",
     title: "Compare multiple departure windows",
-    harnessCalls: "N",
+    harnessCalls: 1,
     scripts: ["merge-journey-searches"],
     agentDecides: true,
     recipe:
-      'imtakt journey "A" "B" --at "$T1" --format json 2>/dev/null > s1.json\nimtakt journey "A" "B" --at "$T2" --format json 2>/dev/null > s2.json\njq -s \'{searches:[{label:"morning",when:$t1,result:.[0]},{label:"evening",when:$t2,result:.[1]}]}\' --arg t1 "$T1" --arg t2 "$T2" s1.json s2.json | python3 "$(imtakt analytics path merge-journey-searches)"',
+      '# Prefer one server pack:\nimtakt plan "A" "B" --pack windows --windows "06:00+120m,17:00+120m" --view board --format json\n# Offline merge (advanced):\nimtakt plan "A" "B" --at "$T1" --format json 2>/dev/null > s1.json\nimtakt plan "A" "B" --at "$T2" --format json 2>/dev/null > s2.json\njq -s \'{searches:[{label:"morning",when:$t1,result:.[0]},{label:"evening",when:$t2,result:.[1]}]}\' --arg t1 "$T1" --arg t2 "$T2" s1.json s2.json | python3 "$(imtakt analytics path merge-journey-searches)"',
   },
   {
     id: "round_trip",
     domain: "transit",
     title: "Round-trip pair matrix (all combinations)",
-    harnessCalls: 2,
+    harnessCalls: 1,
     scripts: ["merge-journey-searches", "round-trip-matrix"],
     agentDecides: true,
     recipe:
-      'jq -s \'{searches:[{label:"out",result:.[0]},{label:"return",result:.[1]}]}\' out.json ret.json | python3 "$(imtakt analytics path merge-journey-searches)" | python3 "$(imtakt analytics path round-trip-matrix)"',
+      '# Prefer: imtakt plan A B --pack round-trip --arrive … --return-after … --view board --json\n# Offline merge (advanced):\njq -s \'{searches:[{label:"out",result:.[0]},{label:"return",result:.[1]}]}\' out.json ret.json | python3 "$(imtakt analytics path merge-journey-searches)" | python3 "$(imtakt analytics path round-trip-matrix)"',
   },
   {
     id: "day_of_travel",
@@ -161,7 +161,7 @@ export const USE_CASES = [
     scripts: ["live-delay-summary", "extract-run-ids", "train-summary"],
     agentDecides: true,
     recipe:
-      'imtakt live "Berlin Hbf" --format json 2>/dev/null | python3 "$(imtakt analytics path live-delay-summary)"\nimtakt train "$RUN_ID" --format json 2>/dev/null | python3 "$(imtakt analytics path train-summary)"',
+      'imtakt status "Berlin Hbf" --format json 2>/dev/null | python3 "$(imtakt analytics path live-delay-summary)"\nimtakt follow "$RUN_ID" --format json 2>/dev/null | python3 "$(imtakt analytics path train-summary)"',
   },
   {
     id: "monitor_planned_legs",
@@ -171,7 +171,7 @@ export const USE_CASES = [
     scripts: ["extract-run-ids"],
     agentDecides: true,
     recipe:
-      'imtakt journey "A" "B" --format json 2>/dev/null | python3 "$(imtakt analytics path extract-run-ids)"',
+      'imtakt plan "A" "B" --format json 2>/dev/null | python3 "$(imtakt analytics path extract-run-ids)"',
   },
 ] as const
 

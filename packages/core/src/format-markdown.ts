@@ -299,23 +299,39 @@ export function formatJourney(data: PlanJourneyResponse, opts?: FormatOptions): 
   return lines.join("\n").trimEnd() + "\n"
 }
 
-export type FormatKind = "find" | "journey" | "live" | "board" | "train"
+/** Domain-neutral kinds; journey/live/train kept as aliases of plan/status/follow. */
+export type FormatKind =
+  | "find"
+  | "plan"
+  | "status"
+  | "follow"
+  | "journey" // alias → plan
+  | "live" // alias → status
+  | "train" // alias → follow
+  | "board" // station board markdown (legacy)
+
+export function normalizeFormatKind(kind: FormatKind): FormatKind {
+  if (kind === "journey") return "plan"
+  if (kind === "live") return "status"
+  if (kind === "train") return "follow"
+  return kind
+}
 
 export function formatMarkdown(
   data: unknown,
   kind: FormatKind,
   opts?: FormatOptions,
 ): string {
-  switch (kind) {
+  switch (normalizeFormatKind(kind)) {
     case "find":
       return formatFind(data as FindStopsResponse, opts)
-    case "journey":
+    case "plan":
       return formatJourney(data as PlanJourneyResponse, opts)
-    case "live":
+    case "status":
       return formatStationLive(data as StationLiveResponse, opts)
     case "board":
       return formatBoard(data as StationBoardResponse, opts)
-    case "train":
+    case "follow":
       return formatTrain(data as ViewTrainResponse, opts)
     default:
       return JSON.stringify(data, null, 2)
