@@ -48,23 +48,24 @@ echo "==> CLI smoke: find"
 "$CLI_BIN" find "Alexanderplatz" | head -c 200
 echo ""
 
-echo "==> CLI smoke: journey plan"
-"$CLI_BIN" journey "Berlin Hbf" "München Hbf" | head -c 300
+echo "==> CLI smoke: plan"
+"$CLI_BIN" plan "Berlin Hbf" "München Hbf" --view board --json | head -c 300
 echo ""
 
-echo "==> CLI smoke: live"
+echo "==> CLI smoke: status"
 STOP_ID="$("$CLI_BIN" find "Berlin Hbf" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const j=JSON.parse(d);process.stdout.write(j.matches[0]?.id||'')})")"
 if [[ -z "$STOP_ID" ]]; then
   echo "FAIL: no stop id from find" >&2
   exit 1
 fi
-"$CLI_BIN" live --stop-id "$STOP_ID" --limit 4 | head -c 200
+"$CLI_BIN" status --stop-id "$STOP_ID" --limit 4 | head -c 200
 echo ""
 
 echo "==> CLI smoke: --version"
+"$CLI_BIN" --version | grep -q '"version":"0.3.2"'
 "$CLI_BIN" --version | grep -q "@imtakt/cli"
-"$MCP_BIN" --version | grep -q "@imtakt/mcp"
-echo "Version flags OK"
+"$MCP_BIN" --version | grep -q "@imtakt/mcp 0.3.2"
+echo "Version flags OK (0.3.2)"
 
 echo "==> MCP smoke: starts (stdio, exit after init)"
 if command -v timeout >/dev/null 2>&1; then
